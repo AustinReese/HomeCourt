@@ -1,7 +1,7 @@
 import { HttpClient, HttpHeaders } from  '@angular/common/http';
 import { Injectable } from  '@angular/core';
 
-import { environment } from '/home/winner/PiScoreboard/pi-ui/src/environments/environment';
+import { environment } from '/home/winner/HomeCourt/pi-ui/src/environments/environment';
 
 @Injectable()
 export class DisplaySelectorService {

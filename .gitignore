@@ -131,5 +131,8 @@ dmypy.json
 .idea/
 *.swp
 
-frontend/nenv/
-frontend/piui/node_modules
+*/dist/
+*/node_modules/
+
+*/.env
+*/__pycache__/
