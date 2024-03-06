@@ -1,0 +1,22 @@
+version: "3.1"
+
+services:
+  api:
+    build:
+      dockerfile: api/docker/Dockerfile
+    volumes:
+      - ./api:/api
+    ports:
+      - "8080:8080"
+  pi-ui:
+    build:
+      dockerfile: pi-ui/docker/Dockerfile
+    volumes:
+      - ./pi-ui:/pi-ui
+    ports:
+      - "4200:4200"
+  postgres:
+    build:
+      dockerfile: db/docker/Dockerfile
+    ports:
+      - "5432:5432"

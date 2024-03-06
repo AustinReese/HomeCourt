@@ -1,0 +1,25 @@
+import { Component } from '@angular/core';
+import { DisplaySelectorComponent } from './display-selector/display-selector.component';
+
+@Component({
+  selector: 'app-root',
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css'],
+})
+
+export class AppComponent {
+  title = 'pi-ui';
+  selectedApp = 'home'
+
+  homeSelect(){
+    this.selectedApp = 'home'
+  }
+
+  linksSelect(){
+    this.selectedApp = 'links'
+  }
+
+  ledSelect(){
+    this.selectedApp = 'led'
+  }
+}

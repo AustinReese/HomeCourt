@@ -1,0 +1,8 @@
+::ng-deep .mat-checkbox .mat-checkbox-frame {
+    border-color: white;
+}
+
+.mat-form-field {
+  text-align: center;
+  line-height: 50px;
+}
