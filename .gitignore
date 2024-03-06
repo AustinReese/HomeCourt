@@ -47,7 +47,7 @@ Thumbs.db
 
 */.env
 
-*/__pycache__
+*/__pycache__/
 
-*/node_modules
-*/dist
+*/node_modules/
+*/dist/
