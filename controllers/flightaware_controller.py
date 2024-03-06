@@ -26,11 +26,17 @@ def getActiveFlights():
                 print(flight)
                 print(flight_data)
                 continue
+
+            #print(flight_data)
             
             flight_data = flight_data['flights']
+
 
             print(f"{flight['flight'].strip()} ({flight_data[0]['type']}): {flight_data[0]['origin']['city']} ({flight_data[0]['origin']['code_iata']}) to " +
                 f"{flight_data[0]['destination']['city']} ({flight_data[0]['destination']['code_iata']}), {flight_data[0]['route_distance']} miles")
             sleep(6.66)
+
+            # grab flight_number, use it to create route_seen variable for database. 
+            # fa_flight_id is a unique identifier
 
 getActiveFlights()

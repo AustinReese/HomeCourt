@@ -52,7 +52,6 @@ class GameUpdateThread(threading.Thread):
         while True:
 
             temp_games = []
-
             page_request = session.get(environ['nba_url'])
             games_dict = loads(page_request.content)
             for game_info in games_dict['events']:
