@@ -97,3 +97,13 @@ CREATE TABLE IF NOT EXISTS temperature_report (
     vcc FLOAT,
     reportTimestamp timestamp 
 )
+
+CREATE TABLE IF NOT EXISTS flight (
+    faid SERIAL PRIMARY KEY,
+    displayOptionKey TEXT,
+    selectionKey TEXT,
+    selectionText TEXT,
+    CONSTRAINT fk_configuration
+        FOREIGN KEY(displayOptionKey)
+        REFERENCES display_option(displayOptionKey)
+);
