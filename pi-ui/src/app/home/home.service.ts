@@ -11,7 +11,7 @@ export class HomeService {
 	constructor(private http: HttpClient) { }
 
 	getTemperatureReport() {
-    let headers = new HttpHeaders().set('Content-Type', 'application/json');
+    	let headers = new HttpHeaders().set('Content-Type', 'application/json');
 		return this.http.get<any[]>(this.temperatureReportUrl);
 	}
 }

@@ -1,9 +1,9 @@
 import { Component, OnInit } from '@angular/core';
-import { AbstractControl, FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { AbstractControl, UntypedFormBuilder, UntypedFormControl, UntypedFormGroup, Validators } from '@angular/forms';
 
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSelectModule as MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule as MatFormFieldModule } from '@angular/material/form-field';
+import { MatCheckboxModule as MatCheckboxModule } from '@angular/material/checkbox';
 
 import { DisplaySelectorService } from './display-selector.service';
 
@@ -17,11 +17,11 @@ export class DisplaySelectorComponent implements OnInit {
 
   displayOptionsLoaded = false;
   isSubmitted = false;
-  form = new FormGroup({
-    clock_hour_format: new FormControl(''),
-    nfl_live_updates: new FormControl(''),
-    selectedDisplay: new FormControl(''),
-    test_script: new FormControl('')
+  form = new UntypedFormGroup({
+    clock_hour_format: new UntypedFormControl(''),
+    nfl_live_updates: new UntypedFormControl(''),
+    selectedDisplay: new UntypedFormControl(''),
+    test_script: new UntypedFormControl('')
   });
   displays = {
     'Off': 'off',
@@ -44,16 +44,16 @@ export class DisplaySelectorComponent implements OnInit {
   }
 
 
-  constructor(private formBuilder: FormBuilder,
+  constructor(private formBuilder: UntypedFormBuilder,
     private displaySelectorService: DisplaySelectorService) { }
 
   ngOnInit(): void {
     this.displaySelectorService.getDisplayOptions().subscribe((result) => {
       this.allDisplayOptions = result['result'];
-      let formObject = { selectedDisplay: new FormControl('') }
+      let formObject = { selectedDisplay: new UntypedFormControl('') }
       for (const [key, value] of Object.entries(this.allDisplayOptions)) {
         for (let optionIdx in value){
-          formObject[value[optionIdx]['displayOptionKey']] = new FormControl('')
+          formObject[value[optionIdx]['displayOptionKey']] = new UntypedFormControl('')
         }
       }
     this.form = this.formBuilder.group(formObject)

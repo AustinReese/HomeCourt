@@ -7,9 +7,9 @@ import { DisplaySelectorComponent } from './display-selector/display-selector.co
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 
-import { MatSelectModule } from '@angular/material/select';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSelectModule as MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule as MatFormFieldModule } from '@angular/material/form-field';
+import { MatCheckboxModule as MatCheckboxModule } from '@angular/material/checkbox';
 import { HomeComponent } from './home/home.component';
 import { LinksComponent } from './links/links.component';
 import { LightsComponent } from './lights/lights.component';

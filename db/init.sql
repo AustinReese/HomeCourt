@@ -4,7 +4,7 @@ DROP TABLE IF EXISTS test_selection;
 DROP TABLE IF EXISTS nba_selection;
 DROP TABLE IF EXISTS display_option CASCADE;
 DROP TABLE IF EXISTS display CASCADE;
-DROP TABLE IF EXISTS temperature_report;
+-- DROP TABLE IF EXISTS temperature_report;
 DROP TABLE IF EXISTS wiz_bulb;
 
 CREATE TABLE IF NOT EXISTS display (

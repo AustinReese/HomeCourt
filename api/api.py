@@ -137,7 +137,7 @@ def submitApplicationOptions():
         return {'result': 'success'}
     except Exception as e:
         print(e)
-        return {"result": f"error: {e}"}
+        return {"result": f"error"}
     
 
 @app.route('/postTemperatureReport', methods=['POST'])
@@ -147,7 +147,7 @@ def postTemperatureReport():
         return {'result': 'success'}
     except Exception as e:
         print(e)
-        return {"result": f"error: {e}"}
+        return {"result": f"error"}
 
 @app.route('/getTemperatureReport', methods=['GET'])
 def getTemperatureReport():
@@ -163,7 +163,7 @@ def getTemperatureReport():
         return {'result': reports}
     except Exception as e:
         print(e)
-        return {"result": f"error: {e}"}
+        return {"result": f"error"}
 
 @app.route('/getWizBulbs', methods=['GET'])
 def getWizBulbs():
@@ -172,16 +172,16 @@ def getWizBulbs():
         return {'result': bulbs}
     except Exception as e:
         print(e)
-        return {"result": f"error: {e}"}
+        return {"result": f"error"}
 
 @app.route('/setWizBulbs', methods=['POST'])
 def setWizBulbs():
     try:
         print(request.json)
-        return {'result': 'success'}
+        return {'result': 'bulbs'}
     except Exception as e:
         print(e)
-        return {"result": f"error: {e}"}
+        return {"result": f"error"}
 
 
 if __name__ == "__main__":
