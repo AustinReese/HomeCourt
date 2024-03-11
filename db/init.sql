@@ -2,10 +2,10 @@ DROP TABLE IF EXISTS nfl_selection;
 DROP TABLE IF EXISTS clock_selection;
 DROP TABLE IF EXISTS test_selection;
 DROP TABLE IF EXISTS nba_selection;
-DROP TABLE IF EXISTS display_option;
+DROP TABLE IF EXISTS display_option CASCADE;
 DROP TABLE IF EXISTS display CASCADE;
 DROP TABLE IF EXISTS temperature_report;
-
+DROP TABLE IF EXISTS wiz_bulb;
 
 CREATE TABLE IF NOT EXISTS display (
     displayKey TEXT PRIMARY KEY,
@@ -96,14 +96,18 @@ CREATE TABLE IF NOT EXISTS temperature_report (
     dsTemp FLOAT,
     vcc FLOAT,
     reportTimestamp timestamp 
-)
-
-CREATE TABLE IF NOT EXISTS flight (
-    faid SERIAL PRIMARY KEY,
-    displayOptionKey TEXT,
-    selectionKey TEXT,
-    selectionText TEXT,
-    CONSTRAINT fk_configuration
-        FOREIGN KEY(displayOptionKey)
-        REFERENCES display_option(displayOptionKey)
 );
+
+CREATE TABLE IF NOT EXISTS wiz_bulb (
+    id SERIAL PRIMARY KEY,
+    bulb_name TEXT,
+    bulb_status TEXT,
+    ip TEXT,
+    r INTEGER,
+    g INTEGER,
+    b INTEGER,
+    brightness INTEGER
+);
+
+INSERT INTO wiz_bulb (bulb_name, bulb_status, ip, r, g, b, brightness) 
+    VALUES ('Living Room 1', 'off', '192.168.0.236', 50, 50, 50, 50);

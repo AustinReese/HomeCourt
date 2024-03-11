@@ -12,6 +12,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { HomeComponent } from './home/home.component';
 import { LinksComponent } from './links/links.component';
+import { LightsComponent } from './lights/lights.component';
 
 
 @NgModule({
@@ -20,6 +21,7 @@ import { LinksComponent } from './links/links.component';
     DisplaySelectorComponent,
     HomeComponent,
     LinksComponent,
+    LightsComponent,
   ],
   imports: [
     BrowserModule,

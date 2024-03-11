@@ -106,6 +106,25 @@ def getTemperatureNodes():
     conn.close()
     TEMPERATURE_NODES = devices[0]
 
+def getWizBulbsFunc():
+    conn = getConn()
+    curs = conn.cursor()
+    curs.execute("SELECT bulb_name, bulb_status, ip, r, g, b, brightness FROM wiz_bulb")
+    devices = curs.fetchall()
+    curs.close()
+    conn.close()
+    return devices
+
+
+def setWizBulbsFunc(bulb_name, bulb_status, r, g, b, brightness):
+    conn = getConn()
+    curs = conn.cursor()
+    insert_object = (r, g, b, brightness, bulb_status, bulb_name)
+    curs.execute("UPDATE wiz_bulb SET r = %s, g = %s, b = %s, brightness = %s, bulb_status = %s WHERE bulb_name = %s", insert_object)
+    devices = curs.fetchall()
+    curs.close()
+    conn.close()
+
 @app.route('/getDisplayOptions', methods=['GET'])
 def getDisplayOptions():
     return {"result": getDisplayOptionsHelper()}
@@ -146,6 +165,24 @@ def getTemperatureReport():
         print(e)
         return {"result": f"error: {e}"}
 
+@app.route('/getWizBulbs', methods=['GET'])
+def getWizBulbs():
+    try:
+        bulbs = getWizBulbsFunc()
+        return {'result': bulbs}
+    except Exception as e:
+        print(e)
+        return {"result": f"error: {e}"}
+
+@app.route('/setWizBulbs', methods=['POST'])
+def setWizBulbs():
+    try:
+        print(request.json)
+        return {'result': 'success'}
+    except Exception as e:
+        print(e)
+        return {"result": f"error: {e}"}
+
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8080)
+    app.run(host='0.0.0.0', port=8080, debug=True)
