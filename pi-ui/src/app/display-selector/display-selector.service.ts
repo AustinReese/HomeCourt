@@ -17,7 +17,7 @@ export class DisplaySelectorService {
 	}
 
 	postDisplayOptions(controlsToPass) {
-    let headers = new HttpHeaders().set('Content-Type', 'application/json');
-    return this.http.post<any[]>(this.submitOptionsURL, controlsToPass, {headers: headers});
+		let headers = new HttpHeaders().set('Content-Type', 'application/json');
+		return this.http.post<any[]>(this.submitOptionsURL, controlsToPass, {headers: headers});
   }
 }

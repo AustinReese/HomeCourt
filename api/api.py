@@ -1,6 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from json import dumps, loads
+from controllers import wiz_controller
 import datetime
 import psycopg2
 import zmq
@@ -113,7 +114,18 @@ def getWizBulbsFunc():
     devices = curs.fetchall()
     curs.close()
     conn.close()
-    return devices
+    device_list = []
+    for device in devices:
+        device_list.append({
+            "name": device[0],
+            "status": device[1],
+            "ip": device[2],
+            "r": device[3],
+            "g": device[4],
+            "b": device[5],
+            "brightness": device[6],
+        })
+    return device_list
 
 
 def setWizBulbsFunc(bulb_name, bulb_status, r, g, b, brightness):
@@ -177,12 +189,13 @@ def getWizBulbs():
 @app.route('/setWizBulbs', methods=['POST'])
 def setWizBulbs():
     try:
-        print(request.json)
+        wiz_controller.setBulbStatus(request.json['status'], request.json['brightness'], request.json['color'])
+    
         return {'result': 'bulbs'}
     except Exception as e:
-        print(e)
+        raise(e)
         return {"result": f"error"}
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=8080, debug=True) 

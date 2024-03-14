@@ -57,11 +57,21 @@ class WizBulb():
 
     def change_color_and_brightness(self, r, g, b, brightness):
         try:
+            if any(not x for x in (r, g, b, brightness)):
+                print("Bad valued passed:", r, g, b, brightness)
+                return
+
             success = False
             tries = 0
+            if int(brightness) < 10:
+                brightness = 10
+            elif int(brightness) > 100:
+                brightness = 100
             while success == False:
                 self.sock.sendall(f'{{"id":1,"method":"setState","params":{{"r":{r},"g":{g},"b":{b},"dimming": {brightness}}}}}'.encode())
                 data = self.sock.recv(1024)
+                print(r, g, b, brightness)
+                print(loads(data.decode()))
                 result = loads(data.decode())['result']
                 if result['success'] == True:
                     success = True
@@ -76,19 +86,20 @@ class WizBulb():
             raise(e)
 
 
-def main():
-    bulbs = {}
-    for env_var_key, env_var_value in environ.items():
-        if env_var_key[:3] == 'wiz':
-            bulbs[env_var_key] = WizBulb(env_var_value)
+def setBulbStatus(status, brightness, color):
+    bulbs = {'living_room': WizBulb('192.168.0.236')}
+    #change 2 db lookup
+    # for env_var_key, env_var_value in environ.items():
+    #     if env_var_key[:3] == 'wiz':
+    #         bulbs[env_var_key] = WizBulb(env_var_value)
     
-    while True:
-        for _, bulb in bulbs.items():
-            bulb.change_color_and_brightness(255, 60, 60, 100)
+    for _, bulb in bulbs.items():
+        bulb.change_color_and_brightness(color[0], color[1], color[2], brightness)
+        if status == True:
             bulb.turn_on()
-            sleep(5)
+        elif status == False:
             bulb.turn_off()
-            sleep(5)
 
-if __name__ == '__main__':
-    main()
+
+# if __name__ == '__main__':
+#     main()

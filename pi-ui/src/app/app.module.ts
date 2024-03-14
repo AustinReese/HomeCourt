@@ -10,10 +10,14 @@ import { HttpClient, HttpClientModule } from '@angular/common/http';
 import { MatSelectModule as MatSelectModule } from '@angular/material/select';
 import { MatFormFieldModule as MatFormFieldModule } from '@angular/material/form-field';
 import { MatCheckboxModule as MatCheckboxModule } from '@angular/material/checkbox';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle'; 
+import { MatInputModule } from '@angular/material/input'; 
+
 import { HomeComponent } from './home/home.component';
 import { LinksComponent } from './links/links.component';
 import { LightsComponent } from './lights/lights.component';
 
+import { NgxColorsModule } from 'ngx-colors';
 
 @NgModule({
   declarations: [
@@ -31,7 +35,10 @@ import { LightsComponent } from './lights/lights.component';
     BrowserAnimationsModule,
     MatSelectModule,
     MatFormFieldModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatSlideToggleModule,
+    MatInputModule,
+    NgxColorsModule
   ],
   providers: [],
   bootstrap: [AppComponent]
