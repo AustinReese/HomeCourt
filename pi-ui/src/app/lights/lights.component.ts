@@ -18,20 +18,20 @@ export class LightsComponent implements OnInit {
   ngOnInit() {
     this.lightsService.getBulbStatus().subscribe((result) => {
       if (result['result'] != 'error'){
-        for (const device of result['result']){
-          console.log(device)
+        for (const device of result['result']){          
           this.devices.push({
             name: device.name,
             color: this.rgbToHex(device.r, device.g, device.b),
             brightness: device.brightness,
             status: device.status,
+            ip: device.ip
           })
         }
       }
       else {
-        console.log(result);
       }
     })
+    console.log(this.devices)
   }
 
   hexToRgb(hex) {
@@ -46,8 +46,16 @@ export class LightsComponent implements OnInit {
     return hex.length === 1 ? '0' + hex : hex
   }).join('')
   
+  deviceChanged(device) {
+    let post = { ...device }
+    post.color = this.hexToRgb(device.color)
+    this.lightsService.setBulbStatus(post).subscribe((result) => {
+      console.log(result);
+    });
+  }
 
-  statusChanged() {
+  statusChanged(device) {
+    console.log(device);
     var post = { ...this.devices[0] }
     post.color = this.hexToRgb(this.devices[0].color)
 
@@ -56,7 +64,7 @@ export class LightsComponent implements OnInit {
     });
   }
 
-  colorChanged() {
+  colorChanged(device) {
     var post = { ...this.devices[0] }
     post.color = this.hexToRgb(this.devices[0].color)
 
@@ -65,7 +73,7 @@ export class LightsComponent implements OnInit {
     });
   }
 
-  brightnessChanged() {
+  brightnessChanged(device) {
     var post = { ...this.devices[0] }
     post.color = this.hexToRgb(this.devices[0].color)
 

@@ -101,7 +101,7 @@ CREATE TABLE IF NOT EXISTS temperature_report (
 CREATE TABLE IF NOT EXISTS wiz_bulb (
     id SERIAL PRIMARY KEY,
     bulb_name TEXT,
-    bulb_status TEXT,
+    bulb_status BOOLEAN,
     ip TEXT,
     r INTEGER,
     g INTEGER,
@@ -110,4 +110,7 @@ CREATE TABLE IF NOT EXISTS wiz_bulb (
 );
 
 INSERT INTO wiz_bulb (bulb_name, bulb_status, ip, r, g, b, brightness) 
-    VALUES ('Living Room 1', 'off', '192.168.0.236', 50, 50, 50, 50);
+    VALUES ('Living Room 1', false, '192.168.0.236', 50, 50, 50, 50);
+
+INSERT INTO wiz_bulb (bulb_name, bulb_status, ip, r, g, b, brightness) 
+    VALUES ('Living Room 2', false, '192.168.0.51', 50, 50, 50, 50);

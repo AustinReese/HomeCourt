@@ -1,6 +1,7 @@
 import { BrowserModule } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { NgModule } from '@angular/core';
+import { CommonModule } from '@angular/common';
 
 import { AppComponent } from './app.component';
 import { DisplaySelectorComponent } from './display-selector/display-selector.component';
@@ -29,6 +30,7 @@ import { NgxColorsModule } from 'ngx-colors';
   ],
   imports: [
     BrowserModule,
+    CommonModule,
     FormsModule,
     HttpClientModule,
     ReactiveFormsModule,

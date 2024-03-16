@@ -110,7 +110,7 @@ def getTemperatureNodes():
 def getWizBulbsFunc():
     conn = getConn()
     curs = conn.cursor()
-    curs.execute("SELECT bulb_name, bulb_status, ip, r, g, b, brightness FROM wiz_bulb")
+    curs.execute("SELECT bulb_name, bulb_status, ip, r, g, b, brightness FROM wiz_bulb ORDER BY bulb_name")
     devices = curs.fetchall()
     curs.close()
     conn.close()
@@ -133,7 +133,7 @@ def setWizBulbsFunc(bulb_name, bulb_status, r, g, b, brightness):
     curs = conn.cursor()
     insert_object = (r, g, b, brightness, bulb_status, bulb_name)
     curs.execute("UPDATE wiz_bulb SET r = %s, g = %s, b = %s, brightness = %s, bulb_status = %s WHERE bulb_name = %s", insert_object)
-    devices = curs.fetchall()
+    conn.commit()
     curs.close()
     conn.close()
 
@@ -189,9 +189,17 @@ def getWizBulbs():
 @app.route('/setWizBulbs', methods=['POST'])
 def setWizBulbs():
     try:
-        wiz_controller.setBulbStatus(request.json['status'], request.json['brightness'], request.json['color'])
+        wiz_controller.setBulbStatus(request.json)
+        
+        #if status == "success":
+        setWizBulbsFunc(request.json['name'],
+                        request.json['status'],
+                        request.json['color'][0],
+                        request.json['color'][1], 
+                        request.json['color'][2], 
+                        request.json['brightness'])
     
-        return {'result': 'bulbs'}
+        return {'result': 'probably good'}
     except Exception as e:
         raise(e)
         return {"result": f"error"}

@@ -20,19 +20,22 @@ class WizBulb():
             while success == False:
                 self.sock.sendall(b'{"id":1,"method":"setState","params":{"state":true}}')
                 data = self.sock.recv(1024)
+                print(data)
                 result = loads(data.decode())['result']
                 if result['success'] == True:
                     success = True
                 else:
                     print("Error:", data)
                     tries += 1
-                    if tries >= 10:
-                        break
-                    sleep(3)
+                    if tries >= 3:
+                        print('failure')
+                    sleep(1)
+            
+            print('success')
 
         except Exception as e:
             print(e)
-            print(e.with_traceback())
+            print('error')
 
     def turn_off(self):
         try:
@@ -42,24 +45,28 @@ class WizBulb():
                 self.sock.sendall(b'{"id":1,"method":"setState","params":{"state":false}}')
                 data = self.sock.recv(1024)
                 result = loads(data.decode())['result']
+                print(result)
                 if result['success'] == True:
                     success = True
                 else:
                     print("Error:", data)
                     tries += 1
-                    if tries >= 10:
-                        break
-                    sleep(3)
-
+                    if tries >= 3:
+                        print('failure')
+                    sleep(1)
+        
+            print('success')
         except Exception as e:
             print(e)
+            print('error')
+
             
 
     def change_color_and_brightness(self, r, g, b, brightness):
         try:
             if any(not x for x in (r, g, b, brightness)):
                 print("Bad valued passed:", r, g, b, brightness)
-                return
+                print('error')
 
             success = False
             tries = 0
@@ -70,36 +77,38 @@ class WizBulb():
             while success == False:
                 self.sock.sendall(f'{{"id":1,"method":"setState","params":{{"r":{r},"g":{g},"b":{b},"dimming": {brightness}}}}}'.encode())
                 data = self.sock.recv(1024)
-                print(r, g, b, brightness)
-                print(loads(data.decode()))
                 result = loads(data.decode())['result']
                 if result['success'] == True:
                     success = True
                 else:
                     print("Error:", data)
                     tries += 1
-                    if tries >= 10:
-                        break
-                    sleep(3)
+                    if tries >= 3:
+                        print('failure')
+                    sleep(1)
+        
+            print('success')
 
         except Exception as e:
             raise(e)
+            print('error')
 
 
-def setBulbStatus(status, brightness, color):
-    bulbs = {'living_room': WizBulb('192.168.0.236')}
-    #change 2 db lookup
-    # for env_var_key, env_var_value in environ.items():
-    #     if env_var_key[:3] == 'wiz':
-    #         bulbs[env_var_key] = WizBulb(env_var_value)
+def setBulbStatus(bulb_data):
+
+
+    bulb = WizBulb(bulb_data['ip'])
+
+
+
+    if bulb_data['status'] == True:
+        bulb.change_color_and_brightness(bulb_data['color'][0], bulb_data['color'][1], bulb_data['color'][2], bulb_data['brightness'])
+    elif bulb_data['status'] == False:
+        bulb.turn_off()
+    else:
+        return 'bad status error'
+
     
-    for _, bulb in bulbs.items():
-        bulb.change_color_and_brightness(color[0], color[1], color[2], brightness)
-        if status == True:
-            bulb.turn_on()
-        elif status == False:
-            bulb.turn_off()
-
 
 # if __name__ == '__main__':
 #     main()
