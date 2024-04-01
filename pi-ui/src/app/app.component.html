@@ -1,0 +1,24 @@
+<div>
+  <div class="container" >
+    <header class="d-flex justify-content-center py-3">
+      <ul class="nav nav-pills">
+        <li class="nav-item"><button type="button" class="m-2 btn btn-outline-primary btn-xl" (click)="homeSelect()">Home</button></li>
+        <li class="nav-item"><button type="button" class="m-2 btn btn-outline-warning btn-xl" (click)="lightsSelect()">Lights</button></li>
+        <li class="nav-item"><button type="button" class="m-2 btn btn-outline-success btn-xl" (click)="linksSelect()">Links</button></li>
+        <li class="nav-item"><button type="button" class="m-2 btn btn-outline-danger btn-xl" (click)="ledSelect()">LED</button></li>
+      </ul>
+    </header>
+    <div *ngIf="selectedApp == 'home'">
+      <app-home></app-home>
+    </div>
+    <div *ngIf="selectedApp == 'lights'">
+      <app-lights></app-lights>
+    </div>
+    <div *ngIf="selectedApp == 'links'">
+      <app-links></app-links>
+    </div>
+    <div *ngIf="selectedApp == 'led'">
+      <app-display-selector></app-display-selector>
+    </div>
+  </div>
+</div>

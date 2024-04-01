@@ -1,0 +1,23 @@
+<div class="text-center">
+    <table class="table text-white">
+        <thead>
+            <tr>
+                <th scope="col">Device Name</th>
+                <th scope="col">Temperature</th>
+                <th scope="col">Humidity</th>
+                <th scope="col">Battery</th>
+                <th scope="col">Last Seen</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr *ngFor="let temperatureNode of temperatureNodes">
+                <th scope="row">{{temperatureNode['Device Name']}}</th>
+                <td>{{temperatureNode['Temperature']}}</td>
+                <td>{{temperatureNode['Humidity']}}</td>
+                <td>{{temperatureNode['Battery']}}</td>
+                <td>{{temperatureNode['Last Seen']}}</td>
+            </tr>
+        </tbody>
+    </table>
+    <img src="assets/images/IMG_8374.jpg" class="img-fluid" alt="Responsive image">
+</div>

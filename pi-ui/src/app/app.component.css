@@ -1,0 +1,9 @@
+.btn-xl {
+    padding: 10px 20px;
+    font-size: 22px;
+    border-radius: 10px;
+    border-width: 2px;
+}
+body {
+    background-color: black;
+}

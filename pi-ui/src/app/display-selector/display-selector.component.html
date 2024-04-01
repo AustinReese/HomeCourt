@@ -1,0 +1,33 @@
+<div class="text-center text-white">
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        <div>
+            <mat-form-field>
+                <mat-label>Select Display</mat-label>
+                <mat-select ngDefaultControl class="custom-select" (selectionChange)="changeDisplay($event)"
+                    [formControl]="selectedDisplay">
+                    <mat-option *ngFor="let display of displays | keyvalue" [value]="display.value">{{display.key}}</mat-option>
+                </mat-select>
+            </mat-form-field>
+        </div>
+        <div class="mb-2" *ngIf="displayOptionsLoaded">
+            <div *ngFor="let displayOption of selectedDisplayOptions">
+                <div *ngIf="displayOption['formType'] == 'dropdown'">
+                    <mat-form-field>
+                        <mat-label>{{displayOption['displayOptionName']}}</mat-label>
+                        <mat-select class="custom-select"
+                            [formControlName]="displayOption['displayOptionKey']">
+                            <mat-option *ngFor="let selection of displayOption['displayOptionSelections']" [value]="selection['selectionKey']">{{selection['selectionText']}}</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+                <div *ngIf="displayOption['formType'] == 'checkbox'" class="mb-3">
+                    <mat-label>{{displayOption['displayOptionName']}}&nbsp;&nbsp;</mat-label>
+                    <mat-checkbox ngDefaultControl 
+                        [formControlName]="displayOption['displayOptionKey']">
+                    </mat-checkbox>
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-danger btn-md">Change Display</button>
+    </form>
+</div>

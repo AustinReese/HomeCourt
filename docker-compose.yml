@@ -1,0 +1,27 @@
+version: "3.1"
+
+services:
+  api:
+    build:
+      dockerfile: api/docker/Dockerfile
+    volumes:
+      - ./api:/api
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+  pi-ui:
+    build:
+      dockerfile: pi-ui/docker/Dockerfile
+    volumes:
+      - ./pi-ui:/pi-ui
+    ports:
+      - "4200:4200"
+    depends_on:
+      - api
+  postgres:
+    restart: unless-stopped
+    build:
+      dockerfile: db/docker/Dockerfile
+    ports:
+      - "5432:5432"

@@ -1,0 +1,10 @@
+
+.mat-form-field {
+  text-align: center;
+  line-height: 50px;
+}
+
+::ng-deep .mdc-checkbox .mdc-checkbox__background {
+  border-color: white !important;
+  border-width: 1px;
+}
