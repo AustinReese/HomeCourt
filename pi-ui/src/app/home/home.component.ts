@@ -21,11 +21,13 @@ export class HomeComponent implements OnInit {
         this.temperatureNodes = []
       }
       else {
-        resultObject[0]["Temperature"] = resultObject[0]["Temperature"] + String.fromCodePoint(8457)
-        resultObject[0]["Humidity"] = resultObject[0]["Humidity"] + '%'
-        var battery: number = (resultObject[0]["Battery"] as number)
-        resultObject[0]["Battery"] = Math.floor((battery / 3600) * 100) + '%'
-        this.temperatureNodes = result['result'];
+        for (let i = 0; i < resultObject.length; i++) {
+          resultObject[i]["Temperature"] = resultObject[i]["Temperature"] + String.fromCodePoint(8457)
+          resultObject[i]["Humidity"] = resultObject[i]["Humidity"] + '%'
+          var battery: number = (resultObject[i]["Battery"] as number)
+          //resultObject[i]["Battery"] = Math.floor((battery / 4200) * 100) + '%'
+          this.temperatureNodes = result['result'];
+        }
       }
     })
   }

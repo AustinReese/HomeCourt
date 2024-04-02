@@ -31,11 +31,17 @@ def zmqExchange(message):
         return
 
 def getConn():
-    return psycopg2.connect(
-        host=environ['db_host'],
-        database="postgres",
-        user="postgres"
-        )
+    if environ['container'] == 'false':
+        return psycopg2.connect(
+            database="postgres",
+            user="postgres"
+            )
+    else:
+        return psycopg2.connect(
+            host='postgres',
+            database="postgres",
+            user="postgres"
+            )
 
 
 def getDisplayOptionsHelper():
@@ -92,8 +98,8 @@ def fetchLatestTemperatureReport(deviceName):
     curs.execute("SELECT devicename,humidity,dhttemp,dstemp,vcc,reporttimestamp \
                 FROM temperature_report tr1\
                 WHERE devicename = %s\
-                AND reporttimestamp = (SELECT MAX(reporttimestamp) FROM temperature_report)\
-                ORDER BY reporttimestamp;", (deviceName,))
+                AND reporttimestamp = (SELECT MAX(reporttimestamp) FROM temperature_report WHERE devicename = %s)\
+                ORDER BY reporttimestamp;", (deviceName, deviceName))
     report = curs.fetchall()
     curs.close()
     conn.close()
@@ -115,8 +121,8 @@ def getTemperatureNodes():
     devices = curs.fetchall()
     curs.close()
     conn.close()
-    TEMPERATURE_NODES = devices[0]
-
+    TEMPERATURE_NODES = [x[0] for x in devices]
+    
 def getWizBulbsFunc():
     conn = getConn()
     curs = conn.cursor()
