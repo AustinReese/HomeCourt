@@ -1,0 +1,14 @@
+::ng-deep .brightness-input {
+  width: 100px;
+}
+
+ngx-colors {
+  display: inline-block;
+  padding-right:13px;
+  padding-bottom:17px;
+}
+
+mat-slide-toggle {
+  padding-bottom: 20px;
+  padding-left: 18px;
+}

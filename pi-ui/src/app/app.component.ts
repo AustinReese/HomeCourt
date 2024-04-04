@@ -9,7 +9,7 @@ import { DisplaySelectorComponent } from './display-selector/display-selector.co
 
 export class AppComponent {
   title = 'pi-ui';
-  selectedApp = 'home'
+  selectedApp = 'lights'
 
   homeSelect(){
     this.selectedApp = 'home'

@@ -139,7 +139,7 @@ class GameUpdateThread(threading.Thread):
                     h_team_score = ""
                     a_team_score = ""
 
-                # Add possession arrow of necessary
+                # Add possession arrow if necessary
                 if status == "live":
                     game_drives = loads(session.get(game_info["competitions"][0]["drives"]["$ref"]).text)
                     team_with_possession_info = loads(session.get(game_drives["items"][-1]["team"]["$ref"]).text)
@@ -327,10 +327,6 @@ class NFLScoreboard(SampleBase):
                         graphics.DrawText(offscreen_canvas, font4x6, 0, 5 + (row_number * font_height), scoring_team_color, row_string)
                     offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
                     sleep(15)
-
-        print("exiting...")
-        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-        offscreen_canvas.Clear()
 
 
 # Main function

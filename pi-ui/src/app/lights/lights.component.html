@@ -1,10 +1,12 @@
 <!-- Pretend this is in a loop going thru all lights -->
-<div *ngFor="let device of devices">
+<div *ngFor="let device of devices" class="text-center row">
   <p style="color: white;">{{device.name}}</p>
-  <ngx-colors ngx-colors-trigger style="display: inline-block; margin:5px;" [hideTextInput]="true" [(ngModel)]="device.color" (ngModelChange)="deviceChanged(device)"></ngx-colors>
-  <mat-slide-toggle [(ngModel)]="device.status" (ngModelChange)="deviceChanged(device)"></mat-slide-toggle>
-  <mat-form-field class="example-full-width">
-    <mat-label>Brightness</mat-label>
-    <input matInput [(ngModel)]="device.brightness" (ngModelChange)="deviceChanged(device)" maxlength="2" value={{device.brightness}}>
-  </mat-form-field>
+  <div class="d-flex align-items-center justify-content-center">
+    <ngx-colors ngx-colors-trigger style="display: inline-block; margin:5px;" [hideTextInput]="true" [(ngModel)]="device.color" (ngModelChange)="deviceChanged(device)"></ngx-colors>
+    <mat-form-field class="brightness-input">
+      <mat-label>Brightness</mat-label>
+      <input matInput [(ngModel)]="device.brightness" (ngModelChange)="deviceChanged(device)" min=0 max=100 step=10 type=number value={{device.brightness}}>
+    </mat-form-field>
+    <mat-slide-toggle [(ngModel)]="device.status" (ngModelChange)="deviceChanged(device)"></mat-slide-toggle>
+  </div>
 </div>
