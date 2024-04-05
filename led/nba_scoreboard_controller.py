@@ -89,7 +89,6 @@ class GameUpdateThread(threading.Thread):
                 game_status = game_info["competitions"][0]["status"]
                 display_clock = game_status["displayClock"]
                 quarter = self.quarter_lookup[game_status["period"]]
-                quarter = game_status["period"]
 
                 game_datetime_utc = datetime.strptime(game_info["competitions"][0]["date"], "%Y-%m-%dT%H:%MZ")
                 game_datetime_local = game_datetime_utc.replace(tzinfo=timezone.utc).astimezone(tz=None)
