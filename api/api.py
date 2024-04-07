@@ -123,35 +123,19 @@ def getTemperatureNodes():
     conn.close()
     TEMPERATURE_NODES = [x[0] for x in devices]
     
-def getWizBulbsFunc():
+def getWizBulbsStatus():
     conn = getConn()
     curs = conn.cursor()
-    curs.execute("SELECT bulb_name, bulb_status, ip, r, g, b, brightness FROM wiz_bulb ORDER BY bulb_name")
+    curs.execute("SELECT bulb_name, ip FROM wiz_bulb ORDER BY bulb_name")
     devices = curs.fetchall()
     curs.close()
     conn.close()
     device_list = []
     for device in devices:
-        device_list.append({
-            "name": device[0],
-            "status": device[1],
-            "ip": device[2],
-            "r": device[3],
-            "g": device[4],
-            "b": device[5],
-            "brightness": device[6],
-        })
+        bulb_object = {"name": device[0], "ip": device[1]}
+        device_list.append(wiz_controller.getBulbStatus(bulb_object))
     return device_list
 
-
-def setWizBulbsFunc(bulb_name, bulb_status, r, g, b, brightness):
-    conn = getConn()
-    curs = conn.cursor()
-    insert_object = (r, g, b, brightness, bulb_status, bulb_name)
-    curs.execute("UPDATE wiz_bulb SET r = %s, g = %s, b = %s, brightness = %s, bulb_status = %s WHERE bulb_name = %s", insert_object)
-    conn.commit()
-    curs.close()
-    conn.close()
 
 @app.route('/getDisplayOptions', methods=['GET'])
 def getDisplayOptions():
@@ -196,24 +180,17 @@ def getTemperatureReport():
 @app.route('/getWizBulbs', methods=['GET'])
 def getWizBulbs():
     try:
-        bulbs = getWizBulbsFunc()
+        bulbs = getWizBulbsStatus()
         return {'result': bulbs}
     except Exception as e:
         print(e)
+        raise e
         return {"result": f"error"}
 
 @app.route('/setWizBulbs', methods=['POST'])
 def setWizBulbs():
     try:
         wiz_controller.setBulbStatus(request.json)
-        
-        #if status == "success":
-        setWizBulbsFunc(request.json['name'],
-                        request.json['status'],
-                        request.json['color'][0],
-                        request.json['color'][1], 
-                        request.json['color'][2], 
-                        request.json['brightness'])
     
         return {'result': 'probably good'}
     except Exception as e:
