@@ -13,9 +13,10 @@ from off_controller import run_off
 
 global CURRENT_APP
 global APPS
-CURRENT_APP = {'display': 'nfl', 'nfl_live_updates': True}
+#CURRENT_APP = {'display': 'nfl', 'nfl_live_updates': True}
 #CURRENT_APP = {'display': 'nba', 'nba_live_updates': True}
 #CURRENT_APP = {'display': 'mnconn'}
+CURRENT_APP = {'display': 'off'}
 
 CURRENT_APP_LOCK = threading.Lock()
 

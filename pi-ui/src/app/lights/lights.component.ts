@@ -18,14 +18,16 @@ export class LightsComponent implements OnInit {
   ngOnInit() {
     this.lightsService.getBulbStatus().subscribe((result) => {
       if (result['result'] != 'error'){
-        for (const device of result['result']){          
-          this.devices.push({
-            name: device.name,
-            color: this.rgbToHex(device.r, device.g, device.b),
-            brightness: device.brightness,
-            status: device.status,
-            ip: device.ip
-          })
+        for (const device of result['result']){
+          if (device != null) {
+            this.devices.push({
+              name: device.name,
+              color: this.rgbToHex(device.r, device.g, device.b),
+              brightness: device.brightness,
+              status: device.status,
+              ip: device.ip
+            })
+          }
         }
       }
       else {

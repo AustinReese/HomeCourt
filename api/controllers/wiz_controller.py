@@ -74,17 +74,18 @@ class WizBulb():
 
     def change_color_and_brightness(self, r, g, b, brightness):
         try:
-            if any(not x for x in (r, g, b, brightness)):
-                print("Bad valued passed:", r, g, b, brightness)
-                print('error')
-
             success = False
             tries = 0
+            r = r if r != 0 else 1
+            g = g if g != 0 else 1
+            b = b if b != 0 else 1
+
             if int(brightness) < 10:
                 brightness = 10
             elif int(brightness) > 100:
                 brightness = 100
             while success == False:
+                print(r, g, b)
                 self.sock.sendall(f'{{"id":1,"method":"setState","params":{{"r":{r},"g":{g},"b":{b},"dimming": {brightness}}}}}'.encode())
                 data = self.sock.recv(1024)
                 result = loads(data.decode())['result']
@@ -126,7 +127,7 @@ class WizBulb():
                     if tries >= 3:
                         print('failure')
                         return
-                    sleep(1)
+                    sleep(.25)
 
             if 'r' not in result:
                 result['r'] = 50

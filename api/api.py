@@ -15,8 +15,6 @@ app = Flask(__name__)
 app.secret_key = "LOOSEJUICE"
 CORS(app)
 
-TEMPERATURE_NODES = []
-
 def zmqExchange(message):
     if environ['container'] == 'false':
         context = zmq.Context()
@@ -114,19 +112,18 @@ def fetchLatestTemperatureReport(deviceName):
     return temperatureReportObject
 
 def getTemperatureNodes():
-    global TEMPERATURE_NODES
     conn = getConn()
     curs = conn.cursor()
     curs.execute("SELECT DISTINCT devicename FROM temperature_report")
     devices = curs.fetchall()
     curs.close()
     conn.close()
-    TEMPERATURE_NODES = [x[0] for x in devices]
+    return [x[0] for x in devices]
     
 def getWizBulbsStatus():
     conn = getConn()
     curs = conn.cursor()
-    curs.execute("SELECT bulb_name, ip FROM wiz_bulb ORDER BY bulb_name")
+    curs.execute("SELECT bulb_name, ip FROM wiz_bulb WHERE is_enabled = true ORDER BY bulb_name")
     devices = curs.fetchall()
     curs.close()
     conn.close()
@@ -163,14 +160,12 @@ def postTemperatureReport():
 
 @app.route('/getTemperatureReport', methods=['GET'])
 def getTemperatureReport():
-    global TEMPERATURE_NODES
     try:
 
-        if len(TEMPERATURE_NODES) == 0:
-            getTemperatureNodes()
+        temperature_nodes = getTemperatureNodes()
 
         reports = []
-        for node in TEMPERATURE_NODES:
+        for node in temperature_nodes:
             reports.append(fetchLatestTemperatureReport(node))
         return {'result': reports}
     except Exception as e:
@@ -184,7 +179,6 @@ def getWizBulbs():
         return {'result': bulbs}
     except Exception as e:
         print(e)
-        raise e
         return {"result": f"error"}
 
 @app.route('/setWizBulbs', methods=['POST'])
@@ -194,7 +188,6 @@ def setWizBulbs():
     
         return {'result': 'probably good'}
     except Exception as e:
-        raise(e)
         return {"result": f"error"}
 
 

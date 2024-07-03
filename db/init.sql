@@ -102,10 +102,17 @@ CREATE TABLE IF NOT EXISTS wiz_bulb (
     id SERIAL PRIMARY KEY,
     bulb_name TEXT,
     ip TEXT,
+    is_enabled BOOLEAN
 );
 
-INSERT INTO wiz_bulb (bulb_name, ip) 
-    VALUES ('Living Room 1', '192.168.0.236');
+INSERT INTO wiz_bulb (bulb_name, ip, is_enabled) 
+    VALUES ('Basement', '192.168.0.236', true);
 
-INSERT INTO wiz_bulb (bulb_name, ip) 
-    VALUES ('Living Room 2', '192.168.0.51');
+INSERT INTO wiz_bulb (bulb_name, ip, is_enabled) 
+    VALUES ('Unused', '192.168.0.51', false);
+
+INSERT INTO wiz_bulb (bulb_name, ip, is_enabled) 
+    VALUES ('Living Room Primary', '192.168.0.43', true);
+
+INSERT INTO wiz_bulb (bulb_name, ip, is_enabled) 
+    VALUES ('Living Room Secondary', '192.168.0.47', true);
