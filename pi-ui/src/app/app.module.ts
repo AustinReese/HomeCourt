@@ -20,6 +20,11 @@ import { LightsComponent } from './lights/lights.component';
 
 import { NgxColorsModule } from 'ngx-colors';
 
+import * as PlotlyJS from 'plotly.js-dist-min';
+import { PlotlyModule } from 'angular-plotly.js';
+
+PlotlyModule.plotlyjs = PlotlyJS;
+
 @NgModule({
   declarations: [
     AppComponent,
@@ -40,7 +45,8 @@ import { NgxColorsModule } from 'ngx-colors';
     MatCheckboxModule,
     MatSlideToggleModule,
     MatInputModule,
-    NgxColorsModule
+    NgxColorsModule,
+    PlotlyModule
   ],
   providers: [],
   bootstrap: [AppComponent]

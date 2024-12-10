@@ -111,6 +111,30 @@ def fetchLatestTemperatureReport(deviceName):
     }
     return temperatureReportObject
 
+def fetchAllTemperatures(numberOfDays):
+    targetDatetime = datetime.datetime.now() - datetime.timedelta(days=numberOfDays)
+    targetTimestamp = targetDatetime.strftime('%Y-%m-%d %H:%M:%S')
+    conn = getConn()
+    curs = conn.cursor()
+    nodes = getTemperatureNodes()
+    returnObject = {}
+    for node in nodes:
+        returnObject[node] = {"x": [], "y": [], "type": "scatter"}
+        curs.execute("SELECT dhttemp,dstemp,reporttimestamp \
+                    FROM temperature_report tr1\
+                    WHERE reporttimestamp > %s\
+                    AND devicename = %s;", (targetTimestamp, node))
+    
+
+        report = curs.fetchall()
+        for res in report:
+            temperature = round((float(res[0]) + float(res[1])) / 2, 2)
+            returnObject[node]["y"].append(temperature)
+            returnObject[node]["x"].append(res[2])
+    curs.close()
+    conn.close()
+    return returnObject
+
 def getTemperatureNodes():
     conn = getConn()
     curs = conn.cursor()
@@ -168,6 +192,15 @@ def getTemperatureReport():
         for node in temperature_nodes:
             reports.append(fetchLatestTemperatureReport(node))
         return {'result': reports}
+    except Exception as e:
+        print(e)
+        return {"result": f"error"}
+
+@app.route('/getAllTemperatures', methods=['POST'])
+def getAllTemperatures():
+    try:
+        print(request.json)
+        return {'result': fetchAllTemperatures(request.json["number_of_days"])}
     except Exception as e:
         print(e)
         return {"result": f"error"}

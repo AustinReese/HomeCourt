@@ -19,5 +19,14 @@
             </tr>
         </tbody>
     </table>
+    <br>
+    <plotly-plot [data]="graph.data" [layout]="graph.layout"></plotly-plot>
+    <br>
+    <mat-form-field>
+        <mat-label>Number of Days</mat-label>
+        <input label="number" matInput [(ngModel)]="numberOfDays" (ngModelChange)="resetGraph()" min=1 max=1000 step=1 type=number value={{numberOfDays.brightness}}>
+    </mat-form-field>
+    <br>
+    <br>
     <img src="assets/images/IMG_8374.jpg" class="img-fluid" alt="Responsive image">
 </div>
