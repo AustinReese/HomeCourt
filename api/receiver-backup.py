@@ -1,5 +1,3 @@
-# This code lives on pi-receiver, don't want to lose it AGAIN
-
 import serial
 import logging
 import requests
@@ -26,11 +24,12 @@ try:
                     continue
                 req_body = {
                     "deviceName": data[0],
-                    "humidity": data[2],
-                    "dhtTemp": data[1],
+                    "humidity": data[1],
+                    "dhtTemp": float(data[2]) * 9 / 5 + 32,
                     "dsTemp": data[3],
                     "vcc": data[4].replace('&', '')
                 }
+                print(req_body)
 
                 requests.post("http://192.168.0.105:8080/postTemperatureReport", json=req_body).text
                 
