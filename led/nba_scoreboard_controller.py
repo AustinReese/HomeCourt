@@ -5,15 +5,23 @@ from rgbmatrix import graphics
 from json import loads
 from PIL import ImageColor
 from time import sleep
-from requests_html import HTMLSession
+import requests
 
 from dotenv import load_dotenv
 from os import environ
 
 load_dotenv()
 
+# ESPN's edge blocks browser-like User-Agents on site.api.espn.com (403), so leave
+# requests' default UA in place. Do not spoof a browser here.
+REQUEST_TIMEOUT = 15
+
 CURRENT_GAMES = []
 CURRENT_GAMES_LOCK = threading.Lock()
+
+# Tracks the last update cycle so the display can show "Error" or "No Games"
+# instead of blinking "Loading..." forever. One of: loading, ok, empty, error.
+FETCH_STATUS = "loading"
 
 class Game():
     def __init__(self, h_team, a_team, h_score, a_score, h_color, a_color, display_clock, quarter, day, time, status):
@@ -44,82 +52,110 @@ class GameUpdateThread(threading.Thread):
         self.daemon = True
         self.quarter_lookup = {0: "Pre", 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "OT"}
 
+    def fetch_json(self, session, url):
+        # raise_for_status keeps a blocked/erroring endpoint from surfacing as a
+        # confusing JSONDecodeError on the HTML error page it returns
+        response = session.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return loads(response.text)
+
     def run(self):
         global CURRENT_GAMES
         global CURRENT_GAMES_LOCK
+        global FETCH_STATUS
 
-        session = HTMLSession()
         while True:
+            try:
+                session = requests.Session()
 
-            temp_games = []
-            page_request = session.get(environ['nba_url'])
-            games_dict = loads(page_request.content)
-            for game_info in games_dict['events']:
-                # Fetch game info json, assign home and away
-                team_one = game_info["competitions"][0]["competitors"][0]
-                team_two = game_info["competitions"][0]["competitors"][1]
-                h_team_info = team_one if team_one['homeAway'] == 'home' else team_two
-                a_team_info = team_one if team_one['homeAway'] == 'away' else team_two
+                temp_games = []
+                games_dict = self.fetch_json(session, environ['nba_url'])
 
-                # Fetch home team info
-                h_team_abbr = h_team_info["team"]["abbreviation"]
-                h_team_color = '#' + h_team_info["team"]["color"]
-                h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
+                for game_info in games_dict['events']:
+                    # One unparseable game shouldn't blank out the whole board
+                    try:
+                        # Fetch game info json, assign home and away
+                        team_one = game_info["competitions"][0]["competitors"][0]
+                        team_two = game_info["competitions"][0]["competitors"][1]
+                        h_team_info = team_one if team_one['homeAway'] == 'home' else team_two
+                        a_team_info = team_one if team_one['homeAway'] == 'away' else team_two
 
-                # Make sure color is light enough to be visible on LED
-                if sum(h_color_tuple) < 25:
-                    h_team_color = '#' + h_team_info["team"]["alternateColor"]
-                    h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
-                    if sum(h_color_tuple) < 25:
-                        h_team_color = "#ffffff"
+                        # Fetch home team info
+                        h_team_abbr = h_team_info["team"]["abbreviation"]
+                        h_team_color = '#' + h_team_info["team"]["color"]
+                        h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
 
-                # Fetch away team info
-                a_team_abbr = a_team_info["team"]["abbreviation"]
-                a_team_color = '#' + a_team_info["team"]["color"]
-                a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
+                        # Make sure color is light enough to be visible on LED
+                        if sum(h_color_tuple) < 25:
+                            h_team_color = '#' + h_team_info["team"]["alternateColor"]
+                            h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
+                            if sum(h_color_tuple) < 25:
+                                h_team_color = "#ffffff"
 
-                # Make sure color is light enough to be visible on LED
-                if sum(a_color_tuple) < 25:
-                    a_team_color = '#' + a_team_info["team"]["alternateColor"]
-                    a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
-                    if sum(a_color_tuple) < 25:
-                        a_team_color = "#ffffff"
+                        # Fetch away team info
+                        a_team_abbr = a_team_info["team"]["abbreviation"]
+                        a_team_color = '#' + a_team_info["team"]["color"]
+                        a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
 
-                # Fetch game details
-                game_status = game_info["competitions"][0]["status"]
-                display_clock = game_status["displayClock"]
-                quarter = self.quarter_lookup[game_status["period"]]
+                        # Make sure color is light enough to be visible on LED
+                        if sum(a_color_tuple) < 25:
+                            a_team_color = '#' + a_team_info["team"]["alternateColor"]
+                            a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
+                            if sum(a_color_tuple) < 25:
+                                a_team_color = "#ffffff"
 
-                game_datetime_utc = datetime.strptime(game_info["competitions"][0]["date"], "%Y-%m-%dT%H:%MZ")
-                game_datetime_local = game_datetime_utc.replace(tzinfo=timezone.utc).astimezone(tz=None)
-                day = f"{game_datetime_local.month}/{game_datetime_local.day}"
-                time = f"{game_datetime_local.hour if game_datetime_local.hour <= 12 else game_datetime_local.hour % 12}:{game_datetime_local.minute if len(str(game_datetime_local.minute)) == 2 else '0' + str(game_datetime_local.minute)}"
+                        # Fetch game details
+                        game_status = game_info["competitions"][0]["status"]
+                        display_clock = game_status["displayClock"]
+                        # Unknown/extra periods (2OT and beyond) shouldn't drop the game
+                        quarter = self.quarter_lookup.get(game_status["period"], "OT")
 
-                status = "live"
-                if game_status["type"]["state"].lower() == "pre":
-                    status = "upcoming"
-                elif game_status["type"]["completed"] is True:
-                    status = "final"
-                elif game_status["type"]["name"] == "STATUS_HALFTIME":
-                    status = "halftime"
-                if status != "upcoming":
-                    h_team_score = h_team_info["score"]
-                    a_team_score = a_team_info["score"]
-                else:
-                    h_team_score = ""
-                    a_team_score = ""
+                        game_datetime_utc = datetime.strptime(game_info["competitions"][0]["date"], "%Y-%m-%dT%H:%MZ")
+                        game_datetime_local = game_datetime_utc.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                        day = f"{game_datetime_local.month}/{game_datetime_local.day}"
+                        time = f"{game_datetime_local.hour if game_datetime_local.hour <= 12 else game_datetime_local.hour % 12}:{game_datetime_local.minute if len(str(game_datetime_local.minute)) == 2 else '0' + str(game_datetime_local.minute)}"
 
-                game_to_add = Game(h_team_abbr, a_team_abbr, h_team_score, a_team_score, h_team_color, a_team_color,
-                                   display_clock, quarter, day, time, status)
-                print(game_to_add)
-                print()
+                        status = "live"
+                        if game_status["type"]["state"].lower() == "pre":
+                            status = "upcoming"
+                        elif game_status["type"]["completed"] is True:
+                            status = "final"
+                        elif game_status["type"]["name"] == "STATUS_HALFTIME":
+                            status = "halftime"
+                        if status != "upcoming":
+                            h_team_score = h_team_info["score"]
+                            a_team_score = a_team_info["score"]
+                        else:
+                            h_team_score = ""
+                            a_team_score = ""
 
-                temp_games.append(game_to_add)
+                        game_to_add = Game(h_team_abbr, a_team_abbr, h_team_score, a_team_score, h_team_color, a_team_color,
+                                           display_clock, quarter, day, time, status)
 
-            with CURRENT_GAMES_LOCK:
-                CURRENT_GAMES = temp_games
+                        temp_games.append(game_to_add)
 
-            sleep(30)
+                    except Exception as e:
+                        print(f"Skipping game {game_info.get('id')}: {e}", flush=True)
+
+                # Events returned but none of them parsed means the cycle failed; surface
+                # it on the display rather than sitting on "Loading..." forever. An empty
+                # schedule (offseason) is not an error.
+                if not temp_games and games_dict['events']:
+                    raise RuntimeError(f"no games parsed from {len(games_dict['events'])} events")
+
+                with CURRENT_GAMES_LOCK:
+                    CURRENT_GAMES = temp_games
+
+                FETCH_STATUS = "ok" if temp_games else "empty"
+
+                sleep(30)
+
+            except Exception as e:
+                print("ERROR", flush=True)
+                print(e, flush=True)
+                FETCH_STATUS = "error"
+                sleep(15)
+                print("ONWARDS", flush=True)
 
 
 
@@ -127,9 +163,30 @@ class NBAScoreboard(SampleBase):
     def __init__(self, *args, **kwargs):
         super(NBAScoreboard, self).__init__(*args, **kwargs)
 
+    def blink_status(self, offscreen_canvas, font, light_grey, red):
+        """Blink one cycle of why no games are on screen. Returns the next canvas."""
+        if FETCH_STATUS == "error":
+            message, message_color = "Error", red
+        elif FETCH_STATUS == "empty":
+            message, message_color = "No Games", light_grey
+        else:
+            message, message_color = "Loading...", light_grey
+
+        # Clear first: the two buffers alternate, so a shorter message would
+        # otherwise leave pixels behind from the previous one
+        offscreen_canvas.Clear()
+        graphics.DrawText(offscreen_canvas, font, 0, 21, message_color, message)
+        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+        sleep(.5)
+        offscreen_canvas.Clear()
+        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+        sleep(.5)
+        return offscreen_canvas
+
     def run(self):
         global CURRENT_GAMES
         global CURRENT_GAMES_LOCK
+        global FETCH_STATUS
 
         offscreen_canvas = self.matrix.CreateFrameCanvas()
 
@@ -140,19 +197,23 @@ class NBAScoreboard(SampleBase):
         font4x6.LoadFont("/opt/rpi-rgb-led-matrix/fonts/4x6.bdf")
 
         light_grey = graphics.Color(160, 160, 160)
+        red = graphics.Color(200, 0, 0)
 
+        # Wait for the first batch of games, reporting why nothing is showing yet
         while len(CURRENT_GAMES) == 0:
-            graphics.DrawText(offscreen_canvas, font7x13, 0, 21, light_grey, "Loading...")
-            offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-            sleep(.5)
-            offscreen_canvas.Clear()
-            offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-            sleep(.5)
+            offscreen_canvas = self.blink_status(offscreen_canvas, font7x13, light_grey, red)
 
         while True:
 
             with CURRENT_GAMES_LOCK:
                 current_games_copy = CURRENT_GAMES
+
+            # Nothing to cycle through: blink the status rather than spinning the
+            # loop with no sleep in it
+            if not current_games_copy:
+                offscreen_canvas = self.blink_status(offscreen_canvas, font7x13, light_grey, red)
+                continue
+
             for game in current_games_copy:
 
                 offscreen_canvas.Clear()

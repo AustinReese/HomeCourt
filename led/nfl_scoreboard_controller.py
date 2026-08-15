@@ -2,7 +2,7 @@ from json import loads
 from PIL import ImageColor
 from time import sleep
 from datetime import datetime, timezone
-from requests_html import HTMLSession
+import requests
 import threading
 from samplebase import SampleBase
 from rgbmatrix import graphics
@@ -12,8 +12,16 @@ from os import environ
 
 load_dotenv()
 
+# ESPN's edge blocks browser-like User-Agents on site.api.espn.com (403), so leave
+# requests' default UA in place. Do not spoof a browser here.
+REQUEST_TIMEOUT = 15
+
 CURRENT_GAMES = []
 CURRENT_GAMES_LOCK = threading.Lock()
+
+# Tracks the last update cycle so the display can show "Error" or "No Games"
+# instead of blinking "Loading..." forever. One of: loading, ok, empty, error.
+FETCH_STATUS = "loading"
 
 SCORING_EVENTS_ENABLED = False
 SCORING_EVENTS = []
@@ -53,143 +61,173 @@ class GameUpdateThread(threading.Thread):
         self.quarter_lookup = {0: "Pre", 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "OT"}
 
 
+    def fetch_json(self, session, url):
+        # raise_for_status keeps a blocked/erroring endpoint from surfacing as a
+        # confusing JSONDecodeError on the HTML error page it returns
+        response = session.get(url, timeout=REQUEST_TIMEOUT)
+        response.raise_for_status()
+        return loads(response.text)
+
+
     def run(self):
         global CURRENT_GAMES
         global CURRENT_GAMES_LOCK
+        global FETCH_STATUS
         global SCORING_EVENTS
         global SCORING_EVENTS_LOCK
         global SCORING_EVENTS_ENABLED
 
-        session = HTMLSession()
-        nfl_url = environ["nfl_url"]
-
         while True:
             try:
+                session = requests.Session()
+                nfl_url = environ["nfl_url"]
+
                 temp_games = []
                 temp_scoring_events = []
                 # Fetch all current games
-                game_refs = loads(session.get(f"{nfl_url}/events").text)
+                game_refs = self.fetch_json(session, f"{nfl_url}/events")
 
                 for game_ref in game_refs["items"]:
-                    # Fetch game info json, assign home and away
-                    game_info = loads(session.get(game_ref["$ref"]).text)
-                    team_one = game_info["competitions"][0]["competitors"][0]
-                    team_two = game_info["competitions"][0]["competitors"][1]
-                    h_team = team_one if team_one['homeAway'] == 'home' else team_two
-                    a_team = team_one if team_one['homeAway'] == 'away' else team_two
+                    # One unparseable game shouldn't blank out the whole board
+                    try:
+                        # Fetch game info json, assign home and away
+                        game_info = self.fetch_json(session, game_ref["$ref"])
+                        team_one = game_info["competitions"][0]["competitors"][0]
+                        team_two = game_info["competitions"][0]["competitors"][1]
+                        h_team = team_one if team_one['homeAway'] == 'home' else team_two
+                        a_team = team_one if team_one['homeAway'] == 'away' else team_two
 
-                    # Fetch home team info
-                    h_team_info = loads(session.get(h_team["team"]["$ref"]).text)
-                    h_team_abbr = h_team_info["abbreviation"]
-                    h_team_color = '#' + h_team_info["color"]
-                    h_team_alt_color = '#' + h_team_info["alternateColor"]
-                    h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
-                    h_team_alt_color_tuple = ImageColor.getcolor(h_team_alt_color, "RGB")
-
-                    # Make sure color is light enough to be visible on LED
-                    if sum(h_color_tuple) < 25:
-                        h_team_color = '#' + h_team_info["alternateColor"]
+                        # Fetch home team info
+                        h_team_info = self.fetch_json(session, h_team["team"]["$ref"])
+                        h_team_abbr = h_team_info["abbreviation"]
+                        h_team_color = '#' + h_team_info["color"]
+                        h_team_alt_color = '#' + h_team_info["alternateColor"]
                         h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
+                        h_team_alt_color_tuple = ImageColor.getcolor(h_team_alt_color, "RGB")
+
+                        # Make sure color is light enough to be visible on LED
                         if sum(h_color_tuple) < 25:
-                            h_team_color = "#a0a0a0"
-                    
-                    if sum(h_team_alt_color_tuple) < 25:
-                        h_team_alt_color = "#a0a0a0"
+                            h_team_color = '#' + h_team_info["alternateColor"]
+                            h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
+                            if sum(h_color_tuple) < 25:
+                                h_team_color = "#a0a0a0"
 
-                    # Fetch away team info
-                    a_team_info = loads(session.get(a_team["team"]["$ref"]).text)
-                    a_team_abbr = a_team_info["abbreviation"]
-                    a_team_color = '#' + a_team_info["color"]
-                    a_team_alt_color = '#' + a_team_info["alternateColor"]
-                    a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
-                    a_team_alt_color_tuple = ImageColor.getcolor(a_team_alt_color, "RGB")
+                        if sum(h_team_alt_color_tuple) < 25:
+                            h_team_alt_color = "#a0a0a0"
 
-                    # Make sure color is light enough to be visible on LED
-                    if sum(a_color_tuple) < 25:
-                        a_team_color = '#' + a_team_info["alternateColor"]
+                        # Fetch away team info
+                        a_team_info = self.fetch_json(session, a_team["team"]["$ref"])
+                        a_team_abbr = a_team_info["abbreviation"]
+                        a_team_color = '#' + a_team_info["color"]
+                        a_team_alt_color = '#' + a_team_info["alternateColor"]
                         a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
+                        a_team_alt_color_tuple = ImageColor.getcolor(a_team_alt_color, "RGB")
+
+                        # Make sure color is light enough to be visible on LED
                         if sum(a_color_tuple) < 25:
-                            a_team_color = "#a0a0a0"
+                            a_team_color = '#' + a_team_info["alternateColor"]
+                            a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
+                            if sum(a_color_tuple) < 25:
+                                a_team_color = "#a0a0a0"
 
-                    if sum(a_team_alt_color_tuple) < 25:
-                        a_team_alt_color = "#a0a0a0"
+                        if sum(a_team_alt_color_tuple) < 25:
+                            a_team_alt_color = "#a0a0a0"
 
-                    # Fetch game details
-                    game_status = loads(session.get(game_info["competitions"][0]["status"]["$ref"]).text)
-                    display_clock = game_status["displayClock"]
-                    quarter = self.quarter_lookup[game_status["period"]]
+                        # Fetch game details
+                        game_status = self.fetch_json(session, game_info["competitions"][0]["status"]["$ref"])
+                        display_clock = game_status["displayClock"]
+                        # Unknown/extra periods (2OT and beyond) shouldn't drop the game
+                        quarter = self.quarter_lookup.get(game_status["period"], "OT")
 
-                    game_datetime_utc = datetime.strptime(game_info["competitions"][0]["date"], "%Y-%m-%dT%H:%MZ")
-                    game_datetime_local = game_datetime_utc.replace(tzinfo=timezone.utc).astimezone(tz=None)
-                    day = f"{game_datetime_local.month}/{game_datetime_local.day}"
-                    time = f"{game_datetime_local.hour if game_datetime_local.hour <= 12 else game_datetime_local.hour % 12}:{game_datetime_local.minute if len(str(game_datetime_local.minute)) == 2 else '0' + str(game_datetime_local.minute)}"
+                        game_datetime_utc = datetime.strptime(game_info["competitions"][0]["date"], "%Y-%m-%dT%H:%MZ")
+                        game_datetime_local = game_datetime_utc.replace(tzinfo=timezone.utc).astimezone(tz=None)
+                        day = f"{game_datetime_local.month}/{game_datetime_local.day}"
+                        time = f"{game_datetime_local.hour if game_datetime_local.hour <= 12 else game_datetime_local.hour % 12}:{game_datetime_local.minute if len(str(game_datetime_local.minute)) == 2 else '0' + str(game_datetime_local.minute)}"
 
-                    status = "live"
-                    if game_status["type"]["state"].lower() == "pre":
-                        status = "upcoming"
-                    elif game_status["type"]["completed"] is True:
-                        status = "final"
-                    elif game_status["type"]["name"] == "STATUS_HALFTIME":
-                        status = "halftime"
+                        status = "live"
+                        if game_status["type"]["state"].lower() == "pre":
+                            status = "upcoming"
+                        elif game_status["type"]["completed"] is True:
+                            status = "final"
+                        elif game_status["type"]["name"] == "STATUS_HALFTIME":
+                            status = "halftime"
 
-                    # Fetch game scores if necessary
-                    if status != "upcoming":
-                        h_team_score = loads(session.get(h_team["score"]["$ref"]).text)["displayValue"]
-                        a_team_score = loads(session.get(a_team["score"]["$ref"]).text)["displayValue"]
-                    else:
-                        h_team_score = ""
-                        a_team_score = ""
-
-                    # Add possession arrow if necessary
-                    if status == "live":
-                        game_drives = loads(session.get(game_info["competitions"][0]["drives"]["$ref"]).text)
-                        team_with_possession_info = loads(session.get(game_drives["items"][-1]["team"]["$ref"]).text)
-                        if a_team_abbr == team_with_possession_info["abbreviation"]:
-                            a_team_abbr = a_team_abbr + "-"
-                        elif h_team_abbr == team_with_possession_info["abbreviation"]:
-                            h_team_abbr = h_team_abbr + "-"
-
-
-                    game_to_add = Game(h_team_abbr, a_team_abbr, h_team_score, a_team_score, h_team_color, a_team_color,
-                                        h_team_alt_color, a_team_alt_color, display_clock, quarter, day, time, status, )
-                    
-                    
-                    # Live updates block
-                    if SCORING_EVENTS_ENABLED == True:
-                        game_id = game_info['id'] 
-                        play_by_play = loads(session.get(f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}").text)
-                        if 'scoringPlays' in play_by_play:
-                            scoring_plays = play_by_play['scoringPlays']
+                        # Fetch game scores if necessary
+                        if status != "upcoming":
+                            h_team_score = self.fetch_json(session, h_team["score"]["$ref"])["displayValue"]
+                            a_team_score = self.fetch_json(session, a_team["score"]["$ref"])["displayValue"]
                         else:
-                            scoring_plays = []
-                        game_to_add.scoring_plays = scoring_plays
+                            h_team_score = ""
+                            a_team_score = ""
 
-                        previous_game_object = [x for x in CURRENT_GAMES if x.h_team.replace('-', '') == game_to_add.h_team.replace('-', '')]
-                        
-                        if len(previous_game_object) == 1:
-                            
-                            previous_game_object = previous_game_object[0]
-                            
-                            if previous_game_object.status == 'live' and len(game_to_add.scoring_plays) > len(previous_game_object.scoring_plays):
-                            # for debug
-                            # if previous_game_object.status != 'live':
-                                latest_scoring_play = scoring_plays[len(scoring_plays) - 1]
-                                scoring_team_abbr = latest_scoring_play['team']['abbreviation'].upper()
-                                if game_to_add.h_team.replace('-', '') == scoring_team_abbr:
-                                    scoring_team = game_to_add.h_team.replace('-', '')
-                                    scoring_team_color = game_to_add.h_color
-                                    scoring_team_alt_color = game_to_add.h_alt_color
-                                elif game_to_add.a_team.replace('-', '') == scoring_team_abbr:
-                                    scoring_team = game_to_add.a_team.replace('-', '')
-                                    scoring_team_color = game_to_add.a_color
-                                    scoring_team_alt_color = game_to_add.a_alt_color
+                        # Add possession arrow if necessary. Purely cosmetic, and a live
+                        # game has no drives until the first snap, so never fail on it.
+                        if status == "live":
+                            try:
+                                game_drives = self.fetch_json(session, game_info["competitions"][0]["drives"]["$ref"])
+                                if game_drives.get("items"):
+                                    team_with_possession_info = self.fetch_json(session, game_drives["items"][-1]["team"]["$ref"])
+                                    if a_team_abbr == team_with_possession_info["abbreviation"]:
+                                        a_team_abbr = a_team_abbr + "-"
+                                    elif h_team_abbr == team_with_possession_info["abbreviation"]:
+                                        h_team_abbr = h_team_abbr + "-"
+                            except Exception as e:
+                                print(f"Possession lookup failed for {a_team_abbr}@{h_team_abbr}: {e}", flush=True)
+
+
+                        game_to_add = Game(h_team_abbr, a_team_abbr, h_team_score, a_team_score, h_team_color, a_team_color,
+                                            h_team_alt_color, a_team_alt_color, display_clock, quarter, day, time, status, )
+
+
+                        # Live updates block. Scoring events are an optional overlay on top
+                        # of the scoreboard, so a failure here must not drop the game.
+                        if SCORING_EVENTS_ENABLED == True:
+                            try:
+                                game_id = game_info['id']
+                                play_by_play = self.fetch_json(session, f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}")
+                                if 'scoringPlays' in play_by_play:
+                                    scoring_plays = play_by_play['scoringPlays']
                                 else:
-                                    print("WHAT!?!?!?!")
+                                    scoring_plays = []
+                                game_to_add.scoring_plays = scoring_plays
 
-                                temp_scoring_events.append((latest_scoring_play['scoringType']['displayName'], latest_scoring_play['text'], scoring_team, scoring_team_color, scoring_team_alt_color))
-                                print(latest_scoring_play['scoringType']['displayName'], latest_scoring_play['text'])
+                                previous_game_object = [x for x in CURRENT_GAMES if x.h_team.replace('-', '') == game_to_add.h_team.replace('-', '')]
 
-                    temp_games.append(game_to_add)
+                                if len(previous_game_object) == 1:
+
+                                    previous_game_object = previous_game_object[0]
+
+                                    if previous_game_object.status == 'live' and len(game_to_add.scoring_plays) > len(previous_game_object.scoring_plays):
+                                    # for debug
+                                    # if previous_game_object.status != 'live':
+                                        latest_scoring_play = scoring_plays[len(scoring_plays) - 1]
+                                        scoring_team_abbr = latest_scoring_play['team']['abbreviation'].upper()
+                                        if game_to_add.h_team.replace('-', '') == scoring_team_abbr:
+                                            scoring_team = game_to_add.h_team.replace('-', '')
+                                            scoring_team_color = game_to_add.h_color
+                                            scoring_team_alt_color = game_to_add.h_alt_color
+                                        elif game_to_add.a_team.replace('-', '') == scoring_team_abbr:
+                                            scoring_team = game_to_add.a_team.replace('-', '')
+                                            scoring_team_color = game_to_add.a_color
+                                            scoring_team_alt_color = game_to_add.a_alt_color
+                                        else:
+                                            print("WHAT!?!?!?!", flush=True)
+
+                                        temp_scoring_events.append((latest_scoring_play['scoringType']['displayName'], latest_scoring_play['text'], scoring_team, scoring_team_color, scoring_team_alt_color))
+                                        print(latest_scoring_play['scoringType']['displayName'], latest_scoring_play['text'], flush=True)
+                            except Exception as e:
+                                print(f"Scoring events failed for {a_team_abbr}@{h_team_abbr}: {e}", flush=True)
+
+                        temp_games.append(game_to_add)
+
+                    except Exception as e:
+                        print(f"Skipping game {game_ref.get('$ref')}: {e}", flush=True)
+
+                # Events returned but none of them parsed means the cycle failed; surface
+                # it on the display rather than sitting on "Loading..." forever. An empty
+                # schedule (offseason) is not an error.
+                if not temp_games and game_refs["items"]:
+                    raise RuntimeError(f"no games parsed from {len(game_refs['items'])} events")
 
                 with CURRENT_GAMES_LOCK:
                     CURRENT_GAMES = temp_games
@@ -197,13 +235,16 @@ class GameUpdateThread(threading.Thread):
                 with SCORING_EVENTS_LOCK:
                     SCORING_EVENTS = SCORING_EVENTS + temp_scoring_events
 
+                FETCH_STATUS = "ok" if temp_games else "empty"
+
                 sleep(30)
 
             except Exception as e:
-                print("ERROR")
-                print(e)
+                print("ERROR", flush=True)
+                print(e, flush=True)
+                FETCH_STATUS = "error"
                 sleep(15)
-                print("ONWARDS")
+                print("ONWARDS", flush=True)
 
 
 class NFLScoreboard(SampleBase):
@@ -212,9 +253,31 @@ class NFLScoreboard(SampleBase):
         self.nfl_scoreboard_options = nfl_scoreboard_options
 
 
+    def blink_status(self, offscreen_canvas, font, light_grey, red):
+        """Blink one cycle of why no games are on screen. Returns the next canvas."""
+        if FETCH_STATUS == "error":
+            message, message_color = "Error", red
+        elif FETCH_STATUS == "empty":
+            message, message_color = "No Games", light_grey
+        else:
+            message, message_color = "Loading...", light_grey
+
+        # Clear first: the two buffers alternate, so a shorter message would
+        # otherwise leave pixels behind from the previous one
+        offscreen_canvas.Clear()
+        graphics.DrawText(offscreen_canvas, font, 0, 21, message_color, message)
+        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+        sleep(.5)
+        offscreen_canvas.Clear()
+        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+        sleep(.5)
+        return offscreen_canvas
+
+
     def run(self):
         global CURRENT_GAMES
         global CURRENT_GAMES_LOCK
+        global FETCH_STATUS
         global SCORING_EVENTS
         global SCORING_EVENTS_ENABLED
         global SCORING_EVENTS_LOCK
@@ -228,19 +291,23 @@ class NFLScoreboard(SampleBase):
         font4x6.LoadFont("/opt/rpi-rgb-led-matrix/fonts/4x6.bdf")
 
         light_grey = graphics.Color(160, 160, 160)
+        red = graphics.Color(200, 0, 0)
 
+        # Wait for the first batch of games, reporting why nothing is showing yet
         while len(CURRENT_GAMES) == 0:
-            graphics.DrawText(offscreen_canvas, font7x13, 0, 21, light_grey, "Loading...")
-            offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-            sleep(.5)
-            offscreen_canvas.Clear()
-            offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-            sleep(.5)
+            offscreen_canvas = self.blink_status(offscreen_canvas, font7x13, light_grey, red)
 
         while True:
 
             with CURRENT_GAMES_LOCK:
                 current_games_copy = CURRENT_GAMES
+
+            # Nothing to cycle through: blink the status rather than spinning the
+            # loop with no sleep in it
+            if not current_games_copy:
+                offscreen_canvas = self.blink_status(offscreen_canvas, font7x13, light_grey, red)
+                continue
+
             for game in current_games_copy:
 
                 offscreen_canvas.Clear()
