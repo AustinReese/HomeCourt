@@ -1,12 +1,62 @@
-<!-- Pretend this is in a loop going thru all lights -->
-<div *ngFor="let device of devices" class="text-center row">
-  <p style="color: white;">{{device.name}}</p>
-  <div class="d-flex align-items-center justify-content-center">
-    <ngx-colors ngx-colors-trigger style="display: inline-block; margin:5px;" [hideTextInput]="true" [(ngModel)]="device.color" (ngModelChange)="deviceChanged(device)"></ngx-colors>
-    <mat-form-field class="brightness-input">
-      <mat-label>Brightness</mat-label>
-      <input matInput [(ngModel)]="device.brightness" (ngModelChange)="deviceChanged(device)" min=0 max=100 step=10 type=number value={{device.brightness}}>
-    </mat-form-field>
-    <mat-slide-toggle [(ngModel)]="device.status" (ngModelChange)="deviceChanged(device)"></mat-slide-toggle>
+<div class="lights-container">
+  <div *ngFor="let device of devices; let i = index"
+       class="bulb-card"
+       [class.off]="!device.status && !device.loading"
+       [style.animation-delay]="i * 0.1 + 's'">
+
+    <!-- Loading -->
+    <div *ngIf="device.loading" class="bulb-loading">
+      <span class="bulb-name">{{device.name}}</span>
+      <div class="loading-bar"></div>
+    </div>
+
+    <!-- Loaded -->
+    <div *ngIf="!device.loading" class="bulb-content">
+      <!-- Header: name + power -->
+      <div class="bulb-header">
+        <span class="bulb-name">{{device.name}}</span>
+        <button class="power-btn" [class.on]="device.status" (click)="togglePower(device)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+               stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 2v8"/>
+            <path d="M18.36 6.64A9 9 0 1 1 5.64 6.64"/>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Color dropdown trigger -->
+      <button class="color-dropdown" (click)="device.colorOpen = !device.colorOpen">
+        <span class="color-dot" [style.background]="getCurrentColor(device)"></span>
+        <span class="color-text">{{getCurrentLabel(device)}}</span>
+        <span class="dropdown-arrow" [class.open]="device.colorOpen">&#9662;</span>
+      </button>
+
+      <!-- Expandable color panel -->
+      <div class="color-panel" [class.open]="device.colorOpen">
+        <input type="range" class="hue-slider" min="0" max="360" step="1"
+               [(ngModel)]="device.hue" (ngModelChange)="colorChanged(device)">
+        <div class="temp-presets">
+          <button class="temp-btn temp-warm"
+                  [class.active]="device.mode === 'temp' && device.temp === 2700"
+                  (click)="tempChanged(device, 2700)">Warm</button>
+          <button class="temp-btn temp-daylight"
+                  [class.active]="device.mode === 'temp' && device.temp === 4000"
+                  (click)="tempChanged(device, 4000)">Daylight</button>
+          <button class="temp-btn temp-cool"
+                  [class.active]="device.mode === 'temp' && device.temp === 6500"
+                  (click)="tempChanged(device, 6500)">Cool</button>
+        </div>
+      </div>
+
+      <!-- Brightness -->
+      <div class="brightness-section">
+        <div class="brightness-header">
+          <span class="section-label">Brightness</span>
+          <span class="brightness-value">{{device.brightness}}%</span>
+        </div>
+        <input type="range" class="brightness-slider" min="10" max="100" step="5"
+               [(ngModel)]="device.brightness" (ngModelChange)="brightnessChanged(device)">
+      </div>
+    </div>
   </div>
 </div>

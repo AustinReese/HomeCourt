@@ -11,7 +11,13 @@ import { HomeService } from './home.service';
 export class HomeComponent implements OnInit {
 
   temperatureNodes = []
-  graph = {}
+  graph = {data: [], layout: {
+          title: 'STATE OF THE TOWNHOME',
+          yaxis: {
+            title: 'Degrees Fahrenheit'
+          }
+        }
+  }
   numberOfDays = 7;
 
   constructor(private homeService: HomeService) { }

@@ -6,15 +6,18 @@ import { environment } from 'src/environments/environment';
 @Injectable()
 export class LightsService {
 
-	private getBulbStatusUrl = environment['api_host'] + 'getWizBulbs';
+	private getBulbListUrl = environment['api_host'] + 'getWizBulbs';
+	private getBulbStatusUrl = environment['api_host'] + 'getWizBulbStatus';
 	private setBulbStatusUrl = environment['api_host'] + 'setWizBulbs';
-
 
 	constructor(private http: HttpClient) { }
 
-	getBulbStatus() {
-    	let headers = new HttpHeaders().set('Content-Type', 'application/json');
-		return this.http.get<any[]>(this.getBulbStatusUrl);
+	getBulbList() {
+		return this.http.get<any>(this.getBulbListUrl);
+	}
+
+	getSingleBulbStatus(bulb: {name: string, ip: string}) {
+		return this.http.post<any>(this.getBulbStatusUrl, bulb);
 	}
 
 	setBulbStatus(bulbStatus) {

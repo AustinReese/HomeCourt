@@ -23,7 +23,6 @@
     "@angular/router": "^17.3.2",
     "angular-plotly.js": "^6.0.0",
     "bootstrap": "^5.3.3",
-    "ngx-colors": "^3.5.3",
     "plotly.js": "^2.35.2",
     "plotly.js-dist-min": "^2.35.2",
     "react-plotly.js": "^2.6.0",

@@ -34,7 +34,8 @@
             "buildOptimizer": false,
             "sourceMap": true,
             "optimization": false,
-            "namedChunks": true
+            "namedChunks": true,
+            "outputHashing": "all"
           },
           "configurations": {
             "production": {
@@ -119,6 +120,10 @@
     }
   },
   "cli": {
-    "analytics": false
+    "analytics": false,
+    "cache": {
+      "enabled": true,
+      "path": ".angular/cache"
+    }
   }
 }

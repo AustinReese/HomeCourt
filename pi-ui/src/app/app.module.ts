@@ -4,7 +4,6 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 
 import { AppComponent } from './app.component';
-import { DisplaySelectorComponent } from './display-selector/display-selector.component';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { HttpClient, HttpClientModule } from '@angular/common/http';
 
@@ -14,11 +13,10 @@ import { MatCheckboxModule as MatCheckboxModule } from '@angular/material/checkb
 import { MatSlideToggleModule } from '@angular/material/slide-toggle'; 
 import { MatInputModule } from '@angular/material/input'; 
 
+import { DisplaySelectorComponent } from './display-selector/display-selector.component';
 import { HomeComponent } from './home/home.component';
 import { LinksComponent } from './links/links.component';
 import { LightsComponent } from './lights/lights.component';
-
-import { NgxColorsModule } from 'ngx-colors';
 
 import * as PlotlyJS from 'plotly.js-dist-min';
 import { PlotlyModule } from 'angular-plotly.js';
@@ -31,7 +29,7 @@ PlotlyModule.plotlyjs = PlotlyJS;
     DisplaySelectorComponent,
     HomeComponent,
     LinksComponent,
-    LightsComponent,
+    LightsComponent
   ],
   imports: [
     BrowserModule,
@@ -45,7 +43,6 @@ PlotlyModule.plotlyjs = PlotlyJS;
     MatCheckboxModule,
     MatSlideToggleModule,
     MatInputModule,
-    NgxColorsModule,
     PlotlyModule
   ],
   providers: [],
