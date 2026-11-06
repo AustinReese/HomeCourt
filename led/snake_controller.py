@@ -1,16 +1,20 @@
 """Snakes slithering across the 64x32 panel.
 
-Each snake follows a sine track across the panel: the body samples the same
-track the head is riding, so the segments trail the head instead of sliding
-sideways as a block. Frames are composited in a numpy buffer and pushed with
-one SetImage call, which is far cheaper than per-pixel SetPixel from Python.
+Each snake follows a drifting sine track: the body samples the same track the
+head is riding, so the segments trail the head instead of sliding sideways as
+a block.
+
+Frames are composited sparsely. Only the pixels a snake actually touches are
+ever visited, and the finished frame goes out as one SetImage call. A dense
+numpy buffer was the obvious approach and measured ~5.5x slower on the Pi —
+numpy's per-call overhead swamps the work at 64x32.
 """
 
 import math
 import random
+from math import sqrt
 from time import sleep, time
 
-import numpy as np
 from PIL import Image
 
 from samplebase import SampleBase
@@ -43,10 +47,61 @@ PALETTE = [
 
 # How much of the previous frame survives when trails are on.
 TRAIL_DECAY = 0.72
+# Below this total brightness a trailing pixel is dropped instead of decaying
+# forever in the accumulator.
+TRAIL_CUTOFF = 3.0
 
 HEAD_RADIUS = 1.5
 BODY_RADIUS = 1.15
 TAIL_BRIGHTNESS = 0.18
+HEAD_WHITEN = 0.45
+
+
+class SparseFrame():
+    """An RGB frame that only tracks the pixels something has drawn into."""
+
+    def __init__(self):
+        self.pixels = bytearray(MATRIX_WIDTH * MATRIX_HEIGHT * 3)
+        # flat pixel index -> [r, g, b] as floats, so overlapping snakes add.
+        self.lit = {}
+
+    def clear(self, decay=0.0):
+        pixels = self.pixels
+        if decay:
+            faded = []
+            for index, value in self.lit.items():
+                red = value[0] * decay
+                green = value[1] * decay
+                blue = value[2] * decay
+                if red + green + blue < TRAIL_CUTOFF:
+                    faded.append(index)
+                    offset = index * 3
+                    pixels[offset] = 0
+                    pixels[offset + 1] = 0
+                    pixels[offset + 2] = 0
+                else:
+                    value[0] = red
+                    value[1] = green
+                    value[2] = blue
+            for index in faded:
+                del self.lit[index]
+        else:
+            for index in self.lit:
+                offset = index * 3
+                pixels[offset] = 0
+                pixels[offset + 1] = 0
+                pixels[offset + 2] = 0
+            self.lit.clear()
+
+    def to_image(self):
+        pixels = self.pixels
+        for index, value in self.lit.items():
+            offset = index * 3
+            red, green, blue = value
+            pixels[offset] = 255 if red > 255.0 else int(red)
+            pixels[offset + 1] = 255 if green > 255.0 else int(green)
+            pixels[offset + 2] = 255 if blue > 255.0 else int(blue)
+        return Image.frombytes('RGB', (MATRIX_WIDTH, MATRIX_HEIGHT), bytes(pixels))
 
 
 class Snake():
@@ -97,11 +152,11 @@ class Snake():
             yield x, self.y_at(x), i / last
 
 
-def splat(buf, x, y, color, intensity, radius):
+def splat(frame, x, y, color, intensity, radius):
     """Add a soft round dot at a fractional position.
 
     Sub-pixel placement is what keeps the motion smooth; snapping segments to
-    whole pixels makes them stutter badly at these sizes.
+    whole pixels makes them stutter badly at this size.
     """
     if intensity <= 0.0:
         return
@@ -109,35 +164,47 @@ def splat(buf, x, y, color, intensity, radius):
     x_hi = min(MATRIX_WIDTH - 1, int(math.ceil(x + radius)))
     y_lo = max(0, int(math.floor(y - radius)))
     y_hi = min(MATRIX_HEIGHT - 1, int(math.ceil(y + radius)))
-    for px in range(x_lo, x_hi + 1):
-        dx = px - x
-        for py in range(y_lo, y_hi + 1):
-            dy = py - y
-            distance = math.sqrt(dx * dx + dy * dy)
+    if x_hi < x_lo or y_hi < y_lo:
+        return
+
+    red, green, blue = color
+    inv_radius = 1.0 / radius
+    lit = frame.lit
+    for py in range(y_lo, y_hi + 1):
+        dy = py - y
+        dy2 = dy * dy
+        row = py * MATRIX_WIDTH
+        for px in range(x_lo, x_hi + 1):
+            dx = px - x
+            distance = sqrt(dx * dx + dy2)
             if distance >= radius:
                 continue
-            weight = (1.0 - distance / radius) * intensity
-            pixel = buf[py, px]
-            pixel[0] += color[0] * weight
-            pixel[1] += color[1] * weight
-            pixel[2] += color[2] * weight
+            weight = (1.0 - distance * inv_radius) * intensity
+            index = row + px
+            value = lit.get(index)
+            if value is None:
+                lit[index] = [red * weight, green * weight, blue * weight]
+            else:
+                value[0] += red * weight
+                value[1] += green * weight
+                value[2] += blue * weight
 
 
-def draw_snake(buf, snake):
+def draw_snake(frame, snake):
     red, green, blue = snake.color
+    # Wash the head toward white so it reads as a head, not just a brighter
+    # body segment.
+    head_color = (red + (255 - red) * HEAD_WHITEN,
+                  green + (255 - green) * HEAD_WHITEN,
+                  blue + (255 - blue) * HEAD_WHITEN)
     for x, y, taper in snake.segments():
         if x < -2 or x > MATRIX_WIDTH + 1:
             continue
         brightness = 1.0 - (1.0 - TAIL_BRIGHTNESS) * taper
         if taper == 0.0:
-            # Wash the head toward white so it reads as a head, not just a
-            # brighter body segment.
-            color = (red + (255 - red) * 0.45,
-                     green + (255 - green) * 0.45,
-                     blue + (255 - blue) * 0.45)
-            splat(buf, x, y, color, brightness, HEAD_RADIUS)
+            splat(frame, x, y, head_color, brightness, HEAD_RADIUS)
         else:
-            splat(buf, x, y, (red, green, blue), brightness, BODY_RADIUS)
+            splat(frame, x, y, (red, green, blue), brightness, BODY_RADIUS)
 
 
 def _option(options, key, table, default):
@@ -154,12 +221,12 @@ class Snakes(SampleBase):
         options = self.snake_options
         speed_range = _option(options, 'snake_speed', SPEEDS, DEFAULT_SPEED)
         count = _option(options, 'snake_count', COUNTS, DEFAULT_COUNT)
-        trails = bool(options.get('snake_trails'))
-        print(f"snakes: count={count} speed={speed_range} trails={trails}", flush=True)
+        decay = TRAIL_DECAY if options.get('snake_trails') else 0.0
+        print(f"snakes: count={count} speed={speed_range} trails={bool(decay)}",
+              flush=True)
 
         canvas = self.matrix.CreateFrameCanvas()
-        buf = np.zeros((MATRIX_HEIGHT, MATRIX_WIDTH, 3), dtype=np.float32)
-        frame = np.zeros((MATRIX_HEIGHT, MATRIX_WIDTH, 3), dtype=np.uint8)
+        frame = SparseFrame()
 
         colors = random.sample(PALETTE, min(count, len(PALETTE)))
         while len(colors) < count:
@@ -176,22 +243,16 @@ class Snakes(SampleBase):
             dt = min(now - last, 0.1)
             last = now
 
-            if trails:
-                buf *= TRAIL_DECAY
-            else:
-                buf.fill(0.0)
-
+            frame.clear(decay)
             for i, snake in enumerate(snakes):
                 snake.advance(dt)
                 if snake.is_finished():
                     snake = Snake(speed_range, random.choice(PALETTE),
                                   random.uniform(0.3, 2.5))
                     snakes[i] = snake
-                draw_snake(buf, snake)
+                draw_snake(frame, snake)
 
-            np.clip(buf, 0.0, 255.0, out=buf)
-            np.copyto(frame, buf, casting='unsafe')
-            canvas.SetImage(Image.fromarray(frame))
+            canvas.SetImage(frame.to_image())
             canvas = self.matrix.SwapOnVSync(canvas)
 
             spare = frame_budget - (time() - now)
