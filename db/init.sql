@@ -29,6 +29,7 @@ CREATE TABLE IF NOT EXISTS display_option (
     displayKey TEXT,
     displayOptionName TEXT,
     formType TEXT,
+    sortOrder INT,
     CONSTRAINT fk_configuration
         FOREIGN KEY(displayKey)
         REFERENCES display(displayKey)
@@ -42,12 +43,14 @@ INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, for
     VALUES ('clock_hour_format', 'clock', 'Hour Format', 'dropdown');
 INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
     VALUES ('test_script', 'test', 'Script to Test', 'dropdown');
-INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
-    VALUES ('snake_count', 'snake', 'Snakes', 'dropdown');
-INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
-    VALUES ('snake_speed', 'snake', 'Speed', 'dropdown');
-INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
-    VALUES ('snake_trails', 'snake', 'Motion Trails', 'checkbox');
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('snake_scene', 'snake', 'Scene', 'dropdown', 10);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('snake_count', 'snake', 'Snakes', 'dropdown', 20);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('snake_speed', 'snake', 'Speed', 'dropdown', 30);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('snake_trails', 'snake', 'Trails', 'checkbox', 40);
 
 CREATE TABLE IF NOT EXISTS clock_selection (
     id SERIAL PRIMARY KEY,
@@ -109,6 +112,10 @@ CREATE TABLE IF NOT EXISTS snake_selection (
         REFERENCES display_option(displayOptionKey)
 );
 
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_scene', 'desert', 'Desert');
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_scene', 'neon', 'Neon');
 INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
     VALUES ('snake_count', 'few', 'Few');
 INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 

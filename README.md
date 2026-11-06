@@ -18,12 +18,27 @@ Alert text is white for readability, except that stat lines get light tints so t
 
 ### Snakes
 
-Snakes slither across the panel from both sides, each on its own drifting sine track so the
-body trails the head instead of sliding sideways as a block. Heads are washed toward white,
-tails fade out, and colors come from a bold-primary palette — anything desaturated turns to
-mud at this size. Options: how many snakes, how fast, and motion trails (the previous frame
-decays instead of clearing). Frames are composited in a numpy buffer and pushed with one
-`SetImage` call, which is far cheaper than per-pixel `SetPixel` from Python.
+Snakes cross the panel from both sides, each riding two sine waves — a short one for
+the slither and a long shallow one that makes the whole path wander, because a single
+sine looks machined. The body samples the same track behind the head, so segments
+trail rather than sliding as a block. Thickness stays constant until the last fifth
+tapers; tapering the whole body reads as a tadpole. Bodies are banded, which is what
+makes a 2px line read as a snake.
+
+Each snake reserves the band of rows it will sweep, so no two ever cross or share a
+track. New snakes are packed flush against one end of a free gap — centring them
+splits the gap into two halves too small to reuse. The lane budget scales with the
+requested count, so few snakes slither wide and many run tighter.
+
+Two scenes. **Desert** is dim rippled sand with desert-snake colors, and trails are
+grooves pressed into the sand that fade over a few seconds. **Neon** is bold primaries
+on black, where trails are the glow of the frames just gone. The sand is deliberately
+dark: a bright background washes the snakes out on a panel this size.
+
+Frames composite sparsely — the background is memcpy'd in whole and only the pixels a
+snake covers are alpha-blended on top. A dense numpy buffer was the obvious approach
+and measured ~5.5x slower on the Pi, because at 64x32 numpy's per-call overhead costs
+more than the whole pure-Python inner loop.
 
 ### LED control UI
 

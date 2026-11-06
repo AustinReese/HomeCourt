@@ -36,7 +36,7 @@ def getDisplayOptionsHelper():
     displays = curs.fetchall()
     all_displays = []
     for display_key, display_name in displays:
-        curs.execute("select displayOptionKey, displayOptionName, formType from display_option where displayKey = %s order by displayOptionKey;", (display_key,))
+        curs.execute("select displayOptionKey, displayOptionName, formType from display_option where displayKey = %s order by sortOrder nulls last, displayOptionKey;", (display_key,))
         display_option_values = curs.fetchall()
         display_option_list = []
         for display_option in display_option_values:
