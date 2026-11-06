@@ -1,6 +1,6 @@
 import logging
 from flask import request, jsonify
-from json import dumps
+from json import dumps, loads
 from services import getDisplayOptionsHelper, submitTemperatureReport, fetchLatestTemperatureReport, fetchAllTemperatures, getTemperatureNodes, getWizBulbList, getWizBulbStatus
 from zmq_utils import zmqExchange
 from controllers import wiz_controller
@@ -22,6 +22,17 @@ def init_routes(app):
             return {'result': 'success'}
         except Exception as e:
             api_log.error(f"submitApplicationOptions error: {e}")
+            return {"result": f"error"}
+
+    @app.route('/getCurrentDisplay', methods=['GET'])
+    def getCurrentDisplay():
+        try:
+            response = zmqExchange(dumps({'action': 'get_current'}), timeout_ms=2000)
+            if not response:
+                return {'result': None}
+            return {'result': loads(response)}
+        except Exception as e:
+            api_log.error(f"getCurrentDisplay error: {e}")
             return {"result": f"error"}
 
     @app.route('/postTemperatureReport', methods=['POST'])

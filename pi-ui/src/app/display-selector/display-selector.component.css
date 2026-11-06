@@ -1,10 +1,319 @@
+/* Shares the vocabulary of the Wiz bulb cards: #111 cards on black, #2a2a2a
+   hairlines, 14px radii, and bold primary accents. */
 
-.mat-form-field {
-  text-align: center;
-  line-height: 50px;
+/* ── Container ── */
+.led-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 16px 32px;
+  gap: 16px;
 }
 
-::ng-deep .mdc-checkbox .mdc-checkbox__background {
-  border-color: white !important;
-  border-width: 1px;
+/* ── Card ── */
+.panel-card {
+  width: 100%;
+  max-width: 380px;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 14px;
+  padding: 20px;
+  opacity: 0;
+  animation: cardIn 0.4s ease forwards;
+  transition: opacity 0.3s ease, border-color 0.3s ease;
+}
+
+.panel-card:hover {
+  border-color: #444;
+}
+
+@keyframes cardIn {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Off: readable but clearly inactive, matching .bulb-card.off. */
+.panel-card.dimmed {
+  opacity: 0.5;
+}
+
+.panel-card.disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+/* ── Header ── */
+.header-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.panel-title {
+  color: #fff;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.panel-status {
+  color: #999;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.panel-status.error {
+  color: #e8352a;
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #777;
+  animation: pulse 1s ease infinite;
+}
+
+.status-dot.ok {
+  background: #19b55a;
+  animation: none;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.25; }
+  50%      { opacity: 1; }
+}
+
+/* ── Switch ── */
+.switch {
+  position: relative;
+  flex-shrink: 0;
+  width: 58px;
+  height: 32px;
+  border-radius: 16px;
+  border: 2px solid #333;
+  background: #1a1a1a;
+  cursor: pointer;
+  padding: 0;
+  transition: background 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.switch:active {
+  transform: scale(0.96);
+}
+
+.switch.on {
+  background: #19b55a;
+  border-color: #19b55a;
+  box-shadow: 0 0 14px rgba(25, 181, 90, 0.4);
+}
+
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #666;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.5);
+  transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), background 0.28s ease;
+}
+
+.switch.on .switch-knob {
+  transform: translateX(26px);
+  background: #fff;
+}
+
+.switch.small {
+  width: 46px;
+  height: 26px;
+  border-radius: 13px;
+}
+
+.switch.small .switch-knob {
+  width: 18px;
+  height: 18px;
+}
+
+.switch.small.on .switch-knob {
+  transform: translateX(20px);
+}
+
+/* ── Section labels ── */
+.section-label {
+  display: block;
+  color: #666;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 12px;
+}
+
+/* ── Display tiles ── */
+.tiles {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.tile {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 10px;
+  padding: 12px 13px;
+  cursor: pointer;
+  text-align: left;
+  opacity: 0;
+  animation: cardIn 0.3s ease forwards;
+  transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.25s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tile:hover {
+  background: #1e1e1e;
+  border-color: #444;
+}
+
+.tile:active {
+  transform: scale(0.97);
+}
+
+.tile-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  opacity: 0.45;
+  transition: opacity 0.25s ease, box-shadow 0.25s ease;
+}
+
+.tile.active {
+  background: #1e1e1e;
+}
+
+.tile.active .tile-dot {
+  opacity: 1;
+}
+
+.tile-name {
+  color: #ccc;
+  font-size: 13px;
+  line-height: 1.25;
+  letter-spacing: 0.2px;
+}
+
+.tile.active .tile-name {
+  color: #fff;
+  font-weight: 500;
+}
+
+/* ── Options ── */
+.option-row + .option-row {
+  margin-top: 16px;
+}
+
+.option-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.option-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.option-name {
+  color: #999;
+  font-size: 14px;
+}
+
+.segmented {
+  display: flex;
+  gap: 6px;
+}
+
+.segment {
+  flex: 1;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  border-radius: 20px;
+  padding: 7px 0;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.segment:hover {
+  border-color: #444;
+  color: #bbb;
+}
+
+.segment:active {
+  transform: scale(0.95);
+}
+
+/* Accent background is bound inline, so this only has to fix the text. */
+.segment.active {
+  color: #0d0d0d;
+}
+
+/* ── Loading ── */
+.loading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.loading-row .section-label {
+  margin-bottom: 0;
+}
+
+.loading-bar {
+  width: 48px;
+  height: 4px;
+  border-radius: 2px;
+  background: #333;
+  overflow: hidden;
+  position: relative;
+}
+
+.loading-bar::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, #666, transparent);
+  animation: shimmer 1.4s ease infinite;
+}
+
+@keyframes shimmer {
+  to { left: 100%; }
+}
+
+.error-text {
+  color: #999;
+  font-size: 13px;
+  margin: 0;
 }

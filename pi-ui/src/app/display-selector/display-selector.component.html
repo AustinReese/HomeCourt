@@ -1,33 +1,85 @@
-<div class="text-center text-white">
-    <form [formGroup]="form" (ngSubmit)="onSubmit()">
-        <div>
-            <mat-form-field>
-                <mat-label>Select Display</mat-label>
-                <mat-select ngDefaultControl class="custom-select" (selectionChange)="changeDisplay($event)"
-                    [formControl]="selectedDisplay">
-                    <mat-option *ngFor="let display of displays | keyvalue" [value]="display.value">{{display.key}}</mat-option>
-                </mat-select>
-            </mat-form-field>
+<div class="led-container">
+
+  <!-- Power / status -->
+  <div class="panel-card header-card" [class.off]="!power">
+    <div class="header-text">
+      <span class="panel-title">LED Sign</span>
+      <span class="panel-status" [class.error]="loadFailed || status === 'error'">
+        {{statusText}}
+        <span class="status-dot" *ngIf="status === 'sending'"></span>
+        <span class="status-dot ok" *ngIf="status === 'ok'"></span>
+      </span>
+    </div>
+    <button class="switch" [class.on]="power" (click)="togglePower()"
+            [attr.aria-pressed]="power" aria-label="Power">
+      <span class="switch-knob"></span>
+    </button>
+  </div>
+
+  <div *ngIf="loading" class="panel-card">
+    <div class="loading-row">
+      <span class="section-label">Loading displays</span>
+      <div class="loading-bar"></div>
+    </div>
+  </div>
+
+  <!-- Displays -->
+  <div class="panel-card" *ngIf="!loading && displays.length" [class.dimmed]="!power">
+    <span class="section-label">Display</span>
+    <div class="tiles">
+      <button *ngFor="let display of displays; let i = index"
+              class="tile"
+              [class.active]="display.displayKey === selectedKey"
+              [style.animation-delay]="i * 0.04 + 's'"
+              [style.borderColor]="display.displayKey === selectedKey ? display.accent : null"
+              [style.boxShadow]="display.displayKey === selectedKey ? '0 0 14px ' + display.accent + '40' : null"
+              (click)="selectDisplay(display.displayKey)">
+        <span class="tile-dot" [style.background]="display.accent"
+              [style.boxShadow]="display.displayKey === selectedKey ? '0 0 8px ' + display.accent : null"></span>
+        <span class="tile-name">{{display.displayName}}</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Options for the selected display -->
+  <div class="panel-card" *ngIf="!loading && selectedOptions.length" [class.disabled]="!power">
+    <span class="section-label">{{selectedDisplay.displayName}} options</span>
+
+    <div class="option-row" *ngFor="let option of selectedOptions">
+
+      <!-- Dropdown -> segmented pills -->
+      <div *ngIf="option.formType === 'dropdown'" class="option-block">
+        <span class="option-name">{{option.displayOptionName}}</span>
+        <div class="segmented">
+          <button *ngFor="let selection of option.displayOptionSelections"
+                  class="segment"
+                  [class.active]="values[option.displayOptionKey] === selection.selectionKey"
+                  [style.background]="values[option.displayOptionKey] === selection.selectionKey ? accent : null"
+                  [style.borderColor]="values[option.displayOptionKey] === selection.selectionKey ? accent : null"
+                  (click)="chooseSelection(option.displayOptionKey, selection.selectionKey)">
+            {{selection.selectionText}}
+          </button>
         </div>
-        <div class="mb-2" *ngIf="displayOptionsLoaded">
-            <div *ngFor="let displayOption of selectedDisplayOptions">
-                <div *ngIf="displayOption['formType'] == 'dropdown'">
-                    <mat-form-field>
-                        <mat-label>{{displayOption['displayOptionName']}}</mat-label>
-                        <mat-select class="custom-select"
-                            [formControlName]="displayOption['displayOptionKey']">
-                            <mat-option *ngFor="let selection of displayOption['displayOptionSelections']" [value]="selection['selectionKey']">{{selection['selectionText']}}</mat-option>
-                        </mat-select>
-                    </mat-form-field>
-                </div>
-                <div *ngIf="displayOption['formType'] == 'checkbox'" class="mb-3">
-                    <mat-label>{{displayOption['displayOptionName']}}&nbsp;&nbsp;</mat-label>
-                    <mat-checkbox ngDefaultControl 
-                        [formControlName]="displayOption['displayOptionKey']">
-                    </mat-checkbox>
-                </div>
-            </div>
-        </div>
-        <button type="submit" class="btn btn-danger btn-md">Change Display</button>
-    </form>
+      </div>
+
+      <!-- Checkbox -> toggle -->
+      <div *ngIf="option.formType === 'checkbox'" class="option-inline">
+        <span class="option-name">{{option.displayOptionName}}</span>
+        <button class="switch small" [class.on]="values[option.displayOptionKey]"
+                [style.background]="values[option.displayOptionKey] ? accent : null"
+                [style.borderColor]="values[option.displayOptionKey] ? accent : null"
+                (click)="toggleCheckbox(option.displayOptionKey)"
+                [attr.aria-pressed]="values[option.displayOptionKey]">
+          <span class="switch-knob"></span>
+        </button>
+      </div>
+
+    </div>
+  </div>
+
+  <div class="panel-card" *ngIf="loadFailed">
+    <span class="section-label">The sign isn't answering</span>
+    <p class="error-text">Couldn't load displays from the API. Check pi-api.service.</p>
+  </div>
+
 </div>

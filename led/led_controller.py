@@ -2,13 +2,14 @@ import threading
 import multiprocessing
 import zmq
 from time import sleep
-from json import loads
+from json import loads, dumps
 from clock_controller import run_clock
 from mn_conn_scoreboard_controller import run_mn_conn_scoreboard
 from nba_scoreboard_controller import run_nba_scoreboard
 from nfl_scoreboard_controller import run_nfl_scoreboard
 from test_controller import run_test
 from off_controller import run_off
+from snake_controller import run_snake
 
 
 global CURRENT_APP
@@ -38,6 +39,14 @@ class EventListener(threading.Thread):
             try:
                 message = loads(socket.recv().decode())
                 print(message)
+                if message.get('action') == 'get_current':
+                    # Read-only probe so the UI can show what is actually
+                    # running. Must not touch CURRENT_APP, or the monitor
+                    # loop would restart the display on every poll.
+                    with CURRENT_APP_LOCK:
+                        current = dict(CURRENT_APP)
+                    socket.send(dumps(current).encode())
+                    continue
                 with CURRENT_APP_LOCK:
                     CURRENT_APP = message
                 socket.send(b"Success")
@@ -78,6 +87,9 @@ class LEDController():
                 self.current_controller.start()
             elif CURRENT_APP['display'] == "mnconn":
                 self.current_controller = multiprocessing.Process(target=run_mn_conn_scoreboard, args=(CURRENT_APP,))
+                self.current_controller.start()
+            elif CURRENT_APP['display'] == "snake":
+                self.current_controller = multiprocessing.Process(target=run_snake, args=(CURRENT_APP,))
                 self.current_controller.start()
             print(f"App switched to {CURRENT_APP['display']} : {self.current_controller}")
         except Exception as e:

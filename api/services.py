@@ -25,37 +25,50 @@ def _safe_avg_temp(dht, ds):
     return None
 
 def getDisplayOptionsHelper():
+    """Every display, in display order, with the options the UI should render.
+
+    Shape: [{displayKey, displayName, displayOptions: [{displayOptionKey,
+    displayOptionName, formType, displayOptionSelections}]}]
+    """
     conn = getConn()
     curs = conn.cursor()
-    curs.execute("select displayKey from display")
+    curs.execute("select displayKey, displayName from display order by sortOrder nulls last, displayName")
     displays = curs.fetchall()
-    all_display_options = {}
-    for display in [x[0] for x in displays]:
-        curs.execute("select displayOptionKey, displayOptionName, formType from display_option where displayKey = %s;", (display,))
+    all_displays = []
+    for display_key, display_name in displays:
+        curs.execute("select displayOptionKey, displayOptionName, formType from display_option where displayKey = %s order by displayOptionKey;", (display_key,))
         display_option_values = curs.fetchall()
         display_option_list = []
         for display_option in display_option_values:
-            curs.execute(f"select selectionKey, selectionText from {display}_selection")
-            selection_values = curs.fetchall()
+            option_key, option_name, form_type = display_option
             selection_list = []
-            for selection_value in selection_values:
-                selections_dict = {
-                    'selectionKey': selection_value[0],
-                    'selectionText': selection_value[1]
-                }
-                selection_list.append(selections_dict)
-            display_option_dict = {
-                'displayOptionKey': display_option[0],
-                'displayOptionName': display_option[1],
-                'formType': display_option[2],
+            # Only dropdowns need selections, so a checkbox-only display does
+            # not have to carry a <display>_selection table at all.
+            if form_type == 'dropdown':
+                curs.execute(
+                    f"select selectionKey, selectionText from {display_key}_selection where displayOptionKey = %s order by id",
+                    (option_key,))
+                for selection_value in curs.fetchall():
+                    selection_list.append({
+                        'selectionKey': selection_value[0],
+                        'selectionText': selection_value[1]
+                    })
+            display_option_list.append({
+                'displayOptionKey': option_key,
+                'displayOptionName': option_name,
+                'formType': form_type,
                 'displayOptionSelections': selection_list
-            }
-            display_option_list.append(display_option_dict)
-        all_display_options[display] = display_option_list
+            })
+        all_displays.append({
+            'displayKey': display_key,
+            'displayName': display_name,
+            'displayOptions': display_option_list
+        })
 
     curs.close()
     conn.close()
-    return all_display_options
+    return all_displays
+
 
 def submitTemperatureReport(report):
     insert_object = [(report['deviceName']),

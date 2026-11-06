@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS nfl_selection;
+DROP TABLE IF EXISTS snake_selection;
 DROP TABLE IF EXISTS clock_selection;
 DROP TABLE IF EXISTS test_selection;
 DROP TABLE IF EXISTS nba_selection;
@@ -7,17 +8,21 @@ DROP TABLE IF EXISTS display CASCADE;
 -- DROP TABLE IF EXISTS temperature_report;
 DROP TABLE IF EXISTS wiz_bulb;
 
+-- sortOrder drives the order of the tiles in the UI. 'off' is not a tile:
+-- the UI has a power switch instead, and still sends display 'off' for it.
 CREATE TABLE IF NOT EXISTS display (
     displayKey TEXT PRIMARY KEY,
-    displayName TEXT
+    displayName TEXT,
+    sortOrder INT
 );
 
-INSERT INTO display (displayKey, displayName) VALUES ('off', 'Off');
-INSERT INTO display (displayKey, displayName) VALUES ('nfl', 'NFL Scoreboard');
-INSERT INTO display (displayKey, displayName) VALUES ('nba', 'NBA Scoreboard');
-INSERT INTO display (displayKey, displayName) VALUES ('clock', 'Clock');
-INSERT INTO display (displayKey, displayName) VALUES ('mnconn', 'MNConn Scoreboard');
-INSERT INTO display (displayKey, displayName) VALUES ('test', 'Test');
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('off', 'Off', 0);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('nfl', 'NFL Scoreboard', 10);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('nba', 'NBA Scoreboard', 20);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('snake', 'Snakes', 30);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('clock', 'Clock', 40);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('mnconn', 'MNConn Scoreboard', 50);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('test', 'Test', 60);
 
 CREATE TABLE IF NOT EXISTS display_option (
     displayOptionKey TEXT PRIMARY KEY,
@@ -37,6 +42,12 @@ INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, for
     VALUES ('clock_hour_format', 'clock', 'Hour Format', 'dropdown');
 INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
     VALUES ('test_script', 'test', 'Script to Test', 'dropdown');
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
+    VALUES ('snake_count', 'snake', 'Snakes', 'dropdown');
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
+    VALUES ('snake_speed', 'snake', 'Speed', 'dropdown');
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType) 
+    VALUES ('snake_trails', 'snake', 'Motion Trails', 'checkbox');
 
 CREATE TABLE IF NOT EXISTS clock_selection (
     id SERIAL PRIMARY KEY,
@@ -87,6 +98,29 @@ INSERT INTO test_selection (displayOptionKey, selectionKey, selectionText)
     VALUES ('test_script', 'rotating_box', 'Rotating Box');
 INSERT INTO test_selection (displayOptionKey, selectionKey, selectionText) 
     VALUES ('test_script', 'pulsing_colors', 'Pulsing Colors');
+
+CREATE TABLE IF NOT EXISTS snake_selection (
+    id SERIAL PRIMARY KEY,
+    displayOptionKey TEXT,
+    selectionKey TEXT,
+    selectionText TEXT,
+    CONSTRAINT fk_configuration
+        FOREIGN KEY(displayOptionKey)
+        REFERENCES display_option(displayOptionKey)
+);
+
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_count', 'few', 'Few');
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_count', 'some', 'Some');
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_count', 'many', 'Many');
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_speed', 'slow', 'Slow');
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_speed', 'medium', 'Medium');
+INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('snake_speed', 'fast', 'Fast');
 
 CREATE TABLE IF NOT EXISTS temperature_report (
     id SERIAL PRIMARY KEY,
