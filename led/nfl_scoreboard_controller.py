@@ -1,20 +1,34 @@
 from json import loads
 from PIL import ImageColor
-from time import sleep
-from datetime import datetime, timezone
+from time import sleep, monotonic
+from datetime import datetime, timedelta, timezone
 import requests
 import threading
 from samplebase import SampleBase
 from rgbmatrix import graphics
 
-from dotenv import load_dotenv
-from os import environ
-
-load_dotenv()
+from led_text import FONT_DIR, FONTS, layout_card
+from nfl_data import AlertTracker, SCOREBOARD_URL, parse_scoreboard
 
 # ESPN's edge blocks browser-like User-Agents on site.api.espn.com (403), so leave
 # requests' default UA in place. Do not spoof a browser here.
 REQUEST_TIMEOUT = 15
+
+# ESPN caches the scoreboard for 2s, so polling faster than this buys nothing.
+# Poll fast while any game is on or about to start, slowly otherwise.
+LIVE_POLL_SECONDS = 5
+IDLE_POLL_SECONDS = 60
+ERROR_RETRY_SECONDS = 15
+KICKOFF_WINDOW = timedelta(minutes=15)
+
+GAME_SECONDS = 5
+ALERT_BLINKS = 4
+ALERT_SCORE_SECONDS = 6
+ALERT_CARD_SECONDS = 6
+
+# Stat card lines, top to bottom: name in white, then light tints that stay
+# readable but tell the lines apart
+STAT_LINE_COLORS = [(255, 255, 255), (255, 215, 110), (130, 205, 255), (150, 255, 150)]
 
 CURRENT_GAMES = []
 CURRENT_GAMES_LOCK = threading.Lock()
@@ -23,42 +37,28 @@ CURRENT_GAMES_LOCK = threading.Lock()
 # instead of blinking "Loading..." forever. One of: loading, ok, empty, error.
 FETCH_STATUS = "loading"
 
-SCORING_EVENTS_ENABLED = False
-SCORING_EVENTS = []
-SCORING_EVENTS_LOCK = threading.Lock()
+# Alerts (scores, close finishes, finals) jump the queue ahead of the game rotation
+ALERTS_ENABLED = False
+ALERTS = []
+ALERTS_LOCK = threading.Lock()
 
 
-class Game():
-    def __init__(self, h_team, a_team, h_score, a_score, h_color, a_color, h_alt_color, a_alt_color, display_clock, quarter, day, time, status, scoring_plays = []):
-        self.h_team = h_team
-        self.a_team = a_team
-        self.h_score = h_score
-        self.a_score = a_score
-        self.h_color = h_color
-        self.a_color = a_color
-        self.h_alt_color = h_alt_color
-        self.a_alt_color = a_alt_color
-        self.display_clock = display_clock
-        self.quarter = quarter
-        self.day = day
-        self.time = time
-        self.status = status
-        self.scoring_plays = scoring_plays
+def find_game(game_id):
+    with CURRENT_GAMES_LOCK:
+        return next((game for game in CURRENT_GAMES if game.id == game_id), None)
 
-    def __str__(self):
-        if self.status == "live":
-            return f"{self.h_team:9}{self.h_score}\n{self.a_team:9}{self.a_score}\n{self.display_clock:9}{self.quarter}"
-        elif self.status == "final":
-            return f"{self.h_team:9}{self.h_score}\n{self.a_team:9}{self.a_score}\n{self.day:9}F"
-        else:
-            return f"{self.h_team:9}{self.day}\n{self.a_team:9}{self.time}"
+
+def poll_seconds(games):
+    soon = datetime.now(timezone.utc) + KICKOFF_WINDOW
+    if any(game.status in ("live", "halftime") or (game.status == "upcoming" and game.start <= soon) for game in games):
+        return LIVE_POLL_SECONDS
+    return IDLE_POLL_SECONDS
 
 
 class GameUpdateThread(threading.Thread):
     def __init__(self):
         threading.Thread.__init__(self)
         self.daemon=True
-        self.quarter_lookup = {0: "Pre", 1: "1st", 2: "2nd", 3: "3rd", 4: "4th", 5: "OT"}
 
 
     def fetch_json(self, session, url):
@@ -71,179 +71,44 @@ class GameUpdateThread(threading.Thread):
 
     def run(self):
         global CURRENT_GAMES
-        global CURRENT_GAMES_LOCK
         global FETCH_STATUS
-        global SCORING_EVENTS
-        global SCORING_EVENTS_LOCK
-        global SCORING_EVENTS_ENABLED
+        global ALERTS
+
+        session = requests.Session()
+        tracker = AlertTracker(lambda url: self.fetch_json(session, url))
 
         while True:
             try:
-                session = requests.Session()
-                nfl_url = environ["nfl_url"]
-
-                temp_games = []
-                temp_scoring_events = []
-                # Fetch all current games
-                game_refs = self.fetch_json(session, f"{nfl_url}/events")
-
-                for game_ref in game_refs["items"]:
-                    # One unparseable game shouldn't blank out the whole board
-                    try:
-                        # Fetch game info json, assign home and away
-                        game_info = self.fetch_json(session, game_ref["$ref"])
-                        team_one = game_info["competitions"][0]["competitors"][0]
-                        team_two = game_info["competitions"][0]["competitors"][1]
-                        h_team = team_one if team_one['homeAway'] == 'home' else team_two
-                        a_team = team_one if team_one['homeAway'] == 'away' else team_two
-
-                        # Fetch home team info
-                        h_team_info = self.fetch_json(session, h_team["team"]["$ref"])
-                        h_team_abbr = h_team_info["abbreviation"]
-                        h_team_color = '#' + h_team_info["color"]
-                        h_team_alt_color = '#' + h_team_info["alternateColor"]
-                        h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
-                        h_team_alt_color_tuple = ImageColor.getcolor(h_team_alt_color, "RGB")
-
-                        # Make sure color is light enough to be visible on LED
-                        if sum(h_color_tuple) < 25:
-                            h_team_color = '#' + h_team_info["alternateColor"]
-                            h_color_tuple = ImageColor.getcolor(h_team_color, "RGB")
-                            if sum(h_color_tuple) < 25:
-                                h_team_color = "#a0a0a0"
-
-                        if sum(h_team_alt_color_tuple) < 25:
-                            h_team_alt_color = "#a0a0a0"
-
-                        # Fetch away team info
-                        a_team_info = self.fetch_json(session, a_team["team"]["$ref"])
-                        a_team_abbr = a_team_info["abbreviation"]
-                        a_team_color = '#' + a_team_info["color"]
-                        a_team_alt_color = '#' + a_team_info["alternateColor"]
-                        a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
-                        a_team_alt_color_tuple = ImageColor.getcolor(a_team_alt_color, "RGB")
-
-                        # Make sure color is light enough to be visible on LED
-                        if sum(a_color_tuple) < 25:
-                            a_team_color = '#' + a_team_info["alternateColor"]
-                            a_color_tuple = ImageColor.getcolor(a_team_color, "RGB")
-                            if sum(a_color_tuple) < 25:
-                                a_team_color = "#a0a0a0"
-
-                        if sum(a_team_alt_color_tuple) < 25:
-                            a_team_alt_color = "#a0a0a0"
-
-                        # Fetch game details
-                        game_status = self.fetch_json(session, game_info["competitions"][0]["status"]["$ref"])
-                        display_clock = game_status["displayClock"]
-                        # Unknown/extra periods (2OT and beyond) shouldn't drop the game
-                        quarter = self.quarter_lookup.get(game_status["period"], "OT")
-
-                        game_datetime_utc = datetime.strptime(game_info["competitions"][0]["date"], "%Y-%m-%dT%H:%MZ")
-                        game_datetime_local = game_datetime_utc.replace(tzinfo=timezone.utc).astimezone(tz=None)
-                        day = f"{game_datetime_local.month}/{game_datetime_local.day}"
-                        time = f"{game_datetime_local.hour if game_datetime_local.hour <= 12 else game_datetime_local.hour % 12}:{game_datetime_local.minute if len(str(game_datetime_local.minute)) == 2 else '0' + str(game_datetime_local.minute)}"
-
-                        status = "live"
-                        if game_status["type"]["state"].lower() == "pre":
-                            status = "upcoming"
-                        elif game_status["type"]["completed"] is True:
-                            status = "final"
-                        elif game_status["type"]["name"] == "STATUS_HALFTIME":
-                            status = "halftime"
-
-                        # Fetch game scores if necessary
-                        if status != "upcoming":
-                            h_team_score = self.fetch_json(session, h_team["score"]["$ref"])["displayValue"]
-                            a_team_score = self.fetch_json(session, a_team["score"]["$ref"])["displayValue"]
-                        else:
-                            h_team_score = ""
-                            a_team_score = ""
-
-                        # Add possession arrow if necessary. Purely cosmetic, and a live
-                        # game has no drives until the first snap, so never fail on it.
-                        if status == "live":
-                            try:
-                                game_drives = self.fetch_json(session, game_info["competitions"][0]["drives"]["$ref"])
-                                if game_drives.get("items"):
-                                    team_with_possession_info = self.fetch_json(session, game_drives["items"][-1]["team"]["$ref"])
-                                    if a_team_abbr == team_with_possession_info["abbreviation"]:
-                                        a_team_abbr = a_team_abbr + "-"
-                                    elif h_team_abbr == team_with_possession_info["abbreviation"]:
-                                        h_team_abbr = h_team_abbr + "-"
-                            except Exception as e:
-                                print(f"Possession lookup failed for {a_team_abbr}@{h_team_abbr}: {e}", flush=True)
-
-
-                        game_to_add = Game(h_team_abbr, a_team_abbr, h_team_score, a_team_score, h_team_color, a_team_color,
-                                            h_team_alt_color, a_team_alt_color, display_clock, quarter, day, time, status, )
-
-
-                        # Live updates block. Scoring events are an optional overlay on top
-                        # of the scoreboard, so a failure here must not drop the game.
-                        if SCORING_EVENTS_ENABLED == True:
-                            try:
-                                game_id = game_info['id']
-                                play_by_play = self.fetch_json(session, f"https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary?event={game_id}")
-                                if 'scoringPlays' in play_by_play:
-                                    scoring_plays = play_by_play['scoringPlays']
-                                else:
-                                    scoring_plays = []
-                                game_to_add.scoring_plays = scoring_plays
-
-                                previous_game_object = [x for x in CURRENT_GAMES if x.h_team.replace('-', '') == game_to_add.h_team.replace('-', '')]
-
-                                if len(previous_game_object) == 1:
-
-                                    previous_game_object = previous_game_object[0]
-
-                                    if previous_game_object.status == 'live' and len(game_to_add.scoring_plays) > len(previous_game_object.scoring_plays):
-                                    # for debug
-                                    # if previous_game_object.status != 'live':
-                                        latest_scoring_play = scoring_plays[len(scoring_plays) - 1]
-                                        scoring_team_abbr = latest_scoring_play['team']['abbreviation'].upper()
-                                        if game_to_add.h_team.replace('-', '') == scoring_team_abbr:
-                                            scoring_team = game_to_add.h_team.replace('-', '')
-                                            scoring_team_color = game_to_add.h_color
-                                            scoring_team_alt_color = game_to_add.h_alt_color
-                                        elif game_to_add.a_team.replace('-', '') == scoring_team_abbr:
-                                            scoring_team = game_to_add.a_team.replace('-', '')
-                                            scoring_team_color = game_to_add.a_color
-                                            scoring_team_alt_color = game_to_add.a_alt_color
-                                        else:
-                                            print("WHAT!?!?!?!", flush=True)
-
-                                        temp_scoring_events.append((latest_scoring_play['scoringType']['displayName'], latest_scoring_play['text'], scoring_team, scoring_team_color, scoring_team_alt_color))
-                                        print(latest_scoring_play['scoringType']['displayName'], latest_scoring_play['text'], flush=True)
-                            except Exception as e:
-                                print(f"Scoring events failed for {a_team_abbr}@{h_team_abbr}: {e}", flush=True)
-
-                        temp_games.append(game_to_add)
-
-                    except Exception as e:
-                        print(f"Skipping game {game_ref.get('$ref')}: {e}", flush=True)
+                scoreboard = self.fetch_json(session, SCOREBOARD_URL)
+                games = parse_scoreboard(scoreboard)
 
                 # Events returned but none of them parsed means the cycle failed; surface
                 # it on the display rather than sitting on "Loading..." forever. An empty
                 # schedule (offseason) is not an error.
-                if not temp_games and game_refs["items"]:
-                    raise RuntimeError(f"no games parsed from {len(game_refs['items'])} events")
+                if not games and scoreboard.get("events"):
+                    raise RuntimeError(f"no games parsed from {len(scoreboard['events'])} events")
 
+                # Publish scores before working out alerts, so the board never waits
+                # on the extra play-by-play lookups
                 with CURRENT_GAMES_LOCK:
-                    CURRENT_GAMES = temp_games
+                    CURRENT_GAMES = games
+                FETCH_STATUS = "ok" if games else "empty"
 
-                with SCORING_EVENTS_LOCK:
-                    SCORING_EVENTS = SCORING_EVENTS + temp_scoring_events
+                if ALERTS_ENABLED:
+                    new_alerts = tracker.update(games)
+                    if new_alerts:
+                        with ALERTS_LOCK:
+                            ALERTS = ALERTS + new_alerts
 
-                FETCH_STATUS = "ok" if temp_games else "empty"
-
-                sleep(30)
+                sleep(poll_seconds(games))
 
             except Exception as e:
                 print("ERROR", flush=True)
                 print(e, flush=True)
                 FETCH_STATUS = "error"
-                sleep(15)
+                # A fresh session drops any connection left in a bad state
+                session = requests.Session()
+                sleep(ERROR_RETRY_SECONDS)
                 print("ONWARDS", flush=True)
 
 
@@ -253,8 +118,8 @@ class NFLScoreboard(SampleBase):
         self.nfl_scoreboard_options = nfl_scoreboard_options
 
 
-    def blink_status(self, offscreen_canvas, font, light_grey, red):
-        """Blink one cycle of why no games are on screen. Returns the next canvas."""
+    def blink_status(self, font, light_grey, red):
+        """Blink one cycle of why no games are on screen."""
         if FETCH_STATUS == "error":
             message, message_color = "Error", red
         elif FETCH_STATUS == "empty":
@@ -264,150 +129,146 @@ class NFLScoreboard(SampleBase):
 
         # Clear first: the two buffers alternate, so a shorter message would
         # otherwise leave pixels behind from the previous one
-        offscreen_canvas.Clear()
-        graphics.DrawText(offscreen_canvas, font, 0, 21, message_color, message)
-        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+        self.canvas.Clear()
+        graphics.DrawText(self.canvas, font, 0, 21, message_color, message)
+        self.canvas = self.matrix.SwapOnVSync(self.canvas)
         sleep(.5)
-        offscreen_canvas.Clear()
-        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
+        self.canvas.Clear()
+        self.canvas = self.matrix.SwapOnVSync(self.canvas)
         sleep(.5)
-        return offscreen_canvas
+
+
+    def wait(self, seconds, interruptible):
+        """Sleep, returning False early if an alert arrives and we may be interrupted."""
+        deadline = monotonic() + seconds
+        while monotonic() < deadline:
+            if interruptible and ALERTS:
+                return False
+            sleep(.1)
+        return True
+
+
+    def draw_game(self, game):
+        # Bottom line sits on row 31: at 32 the clock's colon lost its lower dot
+        self.canvas.Clear()
+        font = self.fonts["7x13"]
+
+        a_color = graphics.Color(*ImageColor.getcolor(game.a_color, "RGB"))
+        h_color = graphics.Color(*ImageColor.getcolor(game.h_color, "RGB"))
+        # A trailing dash marks the team with the ball
+        a_team = game.a_team + ("-" if game.possession_id == game.a_team_id else "")
+        h_team = game.h_team + ("-" if game.possession_id == game.h_team_id else "")
+
+        graphics.DrawText(self.canvas, font, 0, 10, a_color, a_team)
+        graphics.DrawText(self.canvas, font, 64 - 7 * len(game.a_score), 10, a_color, game.a_score)
+        graphics.DrawText(self.canvas, font, 0, 21, h_color, h_team)
+        graphics.DrawText(self.canvas, font, 64 - 7 * len(game.h_score), 21, h_color, game.h_score)
+
+        if game.status == "final":
+            final = "F/OT" if game.period >= 5 else "F"
+            graphics.DrawText(self.canvas, font, 0, 31, self.light_grey, game.day)
+            graphics.DrawText(self.canvas, font, 64 - 7 * len(final), 31, self.light_grey, final)
+        elif game.status == "live":
+            graphics.DrawText(self.canvas, font, 0, 31, self.light_grey, game.display_clock)
+            graphics.DrawText(self.canvas, font, 64 - 7 * len(game.quarter), 31, self.light_grey, game.quarter)
+        elif game.status == "halftime":
+            graphics.DrawText(self.canvas, font, 0, 31, self.light_grey, "Half")
+        elif game.status == "postponed":
+            graphics.DrawText(self.canvas, font, 0, 31, self.light_grey, "PPD")
+        elif game.status == "upcoming":
+            graphics.DrawText(self.canvas, font, 64 - 7 * len(game.day), 10, self.light_grey, game.day)
+            graphics.DrawText(self.canvas, font, 64 - 7 * len(game.time), 21, self.light_grey, game.time)
+
+        self.canvas = self.matrix.SwapOnVSync(self.canvas)
+
+
+    def show_game(self, game_id, seconds, interruptible):
+        """Show one game, redrawing every second so score and clock changes land as
+        soon as they're fetched. Returns False if cut short by an alert."""
+        deadline = monotonic() + seconds
+        while monotonic() < deadline:
+            game = find_game(game_id)
+            if game is None:
+                return True
+            self.draw_game(game)
+            if not self.wait(min(1, deadline - monotonic()), interruptible):
+                return False
+        return True
+
+
+    def draw_card(self, card, line_colors=None):
+        self.canvas.Clear()
+        for n, (font, x, y, text) in enumerate(layout_card(card)):
+            color = line_colors[n % len(line_colors)] if line_colors else self.white
+            graphics.DrawText(self.canvas, self.fonts[font.name], x, y, color, text)
+        self.canvas = self.matrix.SwapOnVSync(self.canvas)
+
+
+    def play_alert(self, alert):
+        # Alerts are white so they read on any panel; team colors stay on the scores
+        for i in range(ALERT_BLINKS):
+            self.draw_card(alert.flash)
+            sleep(.5)
+            self.canvas.Clear()
+            self.canvas = self.matrix.SwapOnVSync(self.canvas)
+            sleep(.25)
+
+        self.show_game(alert.game_id, ALERT_SCORE_SECONDS, interruptible=False)
+
+        for card in alert.cards:
+            self.draw_card(card, self.stat_line_colors if alert.stat_cards else None)
+            sleep(ALERT_CARD_SECONDS)
+
+
+    def play_pending_alerts(self):
+        global ALERTS
+        while True:
+            with ALERTS_LOCK:
+                if not ALERTS:
+                    return
+                alert, ALERTS = ALERTS[0], ALERTS[1:]
+            if monotonic() > alert.expires:
+                print(f"Dropping stale alert: {alert}", flush=True)
+                continue
+            self.play_alert(alert)
 
 
     def run(self):
-        global CURRENT_GAMES
-        global CURRENT_GAMES_LOCK
-        global FETCH_STATUS
-        global SCORING_EVENTS
-        global SCORING_EVENTS_ENABLED
-        global SCORING_EVENTS_LOCK
+        self.canvas = self.matrix.CreateFrameCanvas()
 
-        offscreen_canvas = self.matrix.CreateFrameCanvas()
+        self.fonts = {}
+        for spec in FONTS:
+            self.fonts[spec.name] = graphics.Font()
+            self.fonts[spec.name].LoadFont(f"{FONT_DIR}/{spec.name}.bdf")
 
-        font7x13 = graphics.Font()
-        font7x13.LoadFont("/opt/rpi-rgb-led-matrix/fonts/7x13.bdf")
-
-        font4x6 = graphics.Font()
-        font4x6.LoadFont("/opt/rpi-rgb-led-matrix/fonts/4x6.bdf")
-
-        light_grey = graphics.Color(160, 160, 160)
+        self.light_grey = graphics.Color(160, 160, 160)
+        self.white = graphics.Color(255, 255, 255)
+        self.stat_line_colors = [graphics.Color(*rgb) for rgb in STAT_LINE_COLORS]
         red = graphics.Color(200, 0, 0)
 
-        # Wait for the first batch of games, reporting why nothing is showing yet
-        while len(CURRENT_GAMES) == 0:
-            offscreen_canvas = self.blink_status(offscreen_canvas, font7x13, light_grey, red)
-
         while True:
-
             with CURRENT_GAMES_LOCK:
-                current_games_copy = CURRENT_GAMES
+                game_ids = [game.id for game in CURRENT_GAMES]
 
             # Nothing to cycle through: blink the status rather than spinning the
             # loop with no sleep in it
-            if not current_games_copy:
-                offscreen_canvas = self.blink_status(offscreen_canvas, font7x13, light_grey, red)
+            if not game_ids:
+                self.blink_status(self.fonts["7x13"], self.light_grey, red)
                 continue
 
-            for game in current_games_copy:
-
-                offscreen_canvas.Clear()
-
-                a_score_len = 7 * len(game.a_score)
-                a_score_offset = 64 - a_score_len
-                a_color_tuple = ImageColor.getcolor(game.a_color, "RGB")
-                a_color = graphics.Color(a_color_tuple[0], a_color_tuple[1], a_color_tuple[2])
-                graphics.DrawText(offscreen_canvas, font7x13, 0, 10, a_color, game.a_team)
-                graphics.DrawText(offscreen_canvas, font7x13, a_score_offset, 10, a_color, game.a_score)
-
-                h_score_len = 7 * len(game.h_score)
-                h_score_offset = 64 - h_score_len
-                h_color_tuple = ImageColor.getcolor(game.h_color, "RGB")
-                h_color = graphics.Color(h_color_tuple[0], h_color_tuple[1], h_color_tuple[2])
-                graphics.DrawText(offscreen_canvas, font7x13, 0, 21, h_color, game.h_team)
-                graphics.DrawText(offscreen_canvas, font7x13, h_score_offset, 21, h_color, game.h_score)
-
-                if game.status == "final":
-                    graphics.DrawText(offscreen_canvas, font7x13, 0, 32, light_grey, game.day)
-                    graphics.DrawText(offscreen_canvas, font7x13, 57, 32, light_grey, "F")
-                elif game.status == "live":
-                    graphics.DrawText(offscreen_canvas, font7x13, 0, 32, light_grey, game.display_clock)
-                    if game.quarter != "OT":
-                        graphics.DrawText(offscreen_canvas, font7x13, 43, 32, light_grey, game.quarter)
-                    else:
-                        graphics.DrawText(offscreen_canvas, font7x13, 50, 32, light_grey, game.quarter)
-                elif game.status == "halftime":
-                    graphics.DrawText(offscreen_canvas, font7x13, 0, 32, light_grey, "Half")
-                elif game.status == "upcoming":
-                    game_day_offset = 64 - (len(game.day) * 7)
-                    graphics.DrawText(offscreen_canvas, font7x13, game_day_offset, 10, light_grey, game.day)
-                    game_time_offset = 64 - (len(game.time) * 7)
-                    graphics.DrawText(offscreen_canvas, font7x13, game_time_offset, 21, light_grey, game.time)
-
-
-                offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-                sleep(5)
-            
-            if SCORING_EVENTS_ENABLED == True:
-                with SCORING_EVENTS_LOCK:
-                    scoring_events_copy = SCORING_EVENTS
-                    SCORING_EVENTS = []
-                
-                for scoring_event in scoring_events_copy:
-
-                    offscreen_canvas.Clear()
-                                        
-                    font_width = 4
-                    font_height = 6
-                    chars_per_row = int(64 / font_width)
-                    row_count = int(32 / font_height)
-
-                    words_to_display = scoring_event[1].split()
-
-                    scoring_team_color_tuple = ImageColor.getcolor(scoring_event[3], "RGB")
-                    scoring_team_color = graphics.Color(scoring_team_color_tuple[0], scoring_team_color_tuple[1], scoring_team_color_tuple[2])
-
-                    scoring_team_alt_color_tuple = ImageColor.getcolor(scoring_event[4], "RGB")
-                    scoring_team_alt_color = graphics.Color(scoring_team_alt_color_tuple[0], scoring_team_alt_color_tuple[1], scoring_team_alt_color_tuple[2])
-
-                    for i in range(5):
-                        graphics.DrawText(offscreen_canvas, font7x13, 0, 12, scoring_team_alt_color, scoring_event[0])
-                        graphics.DrawText(offscreen_canvas, font7x13, 0, 30, scoring_team_color, scoring_event[2])
-
-                        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-                        sleep(.5)
-                        offscreen_canvas.Clear()
-                        offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-                        sleep(.5)
-                    
-                    offscreen_canvas.Clear()
-                    offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-
-                    for row_number in range(row_count):
-                        row_string = ''
-                        row_filled = False
-
-                        while row_filled == False and len(words_to_display) > 0:
-                            if len(row_string + words_to_display[0]) > chars_per_row:
-                                row_filled = True
-                                continue
-                            row_string += f'{words_to_display[0]} '
-                            del words_to_display[0]
-                        
-                        row_string = row_string.strip()
-                        print(row_string)
-                        graphics.DrawText(offscreen_canvas, font4x6, 0, 5 + (row_number * font_height), scoring_team_color, row_string)
-                    offscreen_canvas = self.matrix.SwapOnVSync(offscreen_canvas)
-                    sleep(15)
+            for game_id in game_ids:
+                self.play_pending_alerts()
+                self.show_game(game_id, GAME_SECONDS, interruptible=True)
 
 
 # Main function
 def run_nfl_scoreboard(nfl_scoreboard_options):
-    global SCORING_EVENTS_ENABLED
-    SCORING_EVENTS_ENABLED = nfl_scoreboard_options['nfl_live_updates']
+    global ALERTS_ENABLED
+    ALERTS_ENABLED = nfl_scoreboard_options.get('nfl_live_updates', False)
 
     game_update_thread = GameUpdateThread()
     game_update_thread.start()
-    
+
     nfl_scoreboard = NFLScoreboard(nfl_scoreboard_options)
 
     if (not nfl_scoreboard.process()):

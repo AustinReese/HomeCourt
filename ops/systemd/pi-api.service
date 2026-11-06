@@ -1,0 +1,14 @@
+[Unit]
+Description=pi-api
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=winner
+ExecStart=python /home/winner/HomeCourt/api/api.py
+
+[Install]
+WantedBy=multi-user.target

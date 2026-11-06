@@ -1,0 +1,5 @@
+# Installed to /etc/dhcpcd.exit-hook
+# brcmfmac Wi-Fi power save causes periodic disconnects; force it off on every dhcpcd event.
+if [ "$interface" = wlan0 ]; then
+    /sbin/iw dev wlan0 set power_save off 2>/dev/null || true
+fi

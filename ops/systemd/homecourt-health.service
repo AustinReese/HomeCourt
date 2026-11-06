@@ -1,0 +1,7 @@
+[Unit]
+Description=HomeCourt health check (network, app services, power)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/homecourt-health
+TimeoutStartSec=90

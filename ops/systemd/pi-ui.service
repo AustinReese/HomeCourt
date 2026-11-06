@@ -1,0 +1,14 @@
+[Unit]
+Description=pi-ui
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=winner
+ExecStart=sudo http-server /home/winner/HomeCourt/pi-ui/dist/pi-ui/ -p 80
+
+[Install]
+WantedBy=multi-user.target

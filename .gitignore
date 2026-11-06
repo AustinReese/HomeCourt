@@ -137,3 +137,5 @@ dmypy.json
 */.env
 */__pycache__/
 */.angular/
+# Runtime logs
+logs/

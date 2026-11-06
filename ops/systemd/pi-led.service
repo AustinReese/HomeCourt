@@ -1,0 +1,14 @@
+[Unit]
+Description=pi-led
+After=network.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=always
+RestartSec=10
+User=winner
+ExecStart=sudo /home/winner/HomeCourt/led/run.sh
+
+[Install]
+WantedBy=multi-user.target
