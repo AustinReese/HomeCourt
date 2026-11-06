@@ -7,6 +7,8 @@ const ACCENTS = {
   nfl:    '#e8352a',  // red
   nba:    '#f5b301',  // yellow
   snake:  '#19b55a',  // green
+  film:   '#f2e4c0',  // warm ivory — not a primary, but bright enough to hold
+  weather:'#00c2ff',  // sky blue
   clock:  '#1877f2',  // blue
   mnconn: '#00b4d8',  // cyan
   test:   '#9b5de5'   // violet

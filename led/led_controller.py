@@ -10,6 +10,8 @@ from nfl_scoreboard_controller import run_nfl_scoreboard
 from test_controller import run_test
 from off_controller import run_off
 from snake_controller import run_snake
+from film_controller import run_film
+from weather_controller import run_weather
 
 
 global CURRENT_APP
@@ -90,6 +92,12 @@ class LEDController():
                 self.current_controller.start()
             elif CURRENT_APP['display'] == "snake":
                 self.current_controller = multiprocessing.Process(target=run_snake, args=(CURRENT_APP,))
+                self.current_controller.start()
+            elif CURRENT_APP['display'] == "film":
+                self.current_controller = multiprocessing.Process(target=run_film, args=(CURRENT_APP,))
+                self.current_controller.start()
+            elif CURRENT_APP['display'] == "weather":
+                self.current_controller = multiprocessing.Process(target=run_weather, args=(CURRENT_APP,))
                 self.current_controller.start()
             print(f"App switched to {CURRENT_APP['display']} : {self.current_controller}")
         except Exception as e:

@@ -1,5 +1,6 @@
 DROP TABLE IF EXISTS nfl_selection;
 DROP TABLE IF EXISTS snake_selection;
+DROP TABLE IF EXISTS film_selection;
 DROP TABLE IF EXISTS clock_selection;
 DROP TABLE IF EXISTS test_selection;
 DROP TABLE IF EXISTS nba_selection;
@@ -20,6 +21,8 @@ INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('off', 'Off', 0
 INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('nfl', 'NFL Scoreboard', 10);
 INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('nba', 'NBA Scoreboard', 20);
 INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('snake', 'Snakes', 30);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('film', 'Silent Film', 35);
+INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('weather', 'Weather', 25);
 INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('clock', 'Clock', 40);
 INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('mnconn', 'MNConn Scoreboard', 50);
 INSERT INTO display (displayKey, displayName, sortOrder) VALUES ('test', 'Test', 60);
@@ -51,6 +54,17 @@ INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, for
     VALUES ('snake_speed', 'snake', 'Speed', 'dropdown', 30);
 INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
     VALUES ('snake_trails', 'snake', 'Trails', 'checkbox', 40);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('film_speed', 'film', 'Projector Speed', 'dropdown', 10);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('film_tint', 'film', 'Tint', 'dropdown', 20);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('film_restored', 'film', 'Restored Print', 'checkbox', 30);
+
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('weather_units', 'weather', 'Units', 'dropdown', 10);
+INSERT INTO display_option (displayOptionKey, displayKey, displayOptionName, formType, sortOrder) 
+    VALUES ('weather_outlook', 'weather', 'Outlook', 'dropdown', 20);
 
 CREATE TABLE IF NOT EXISTS clock_selection (
     id SERIAL PRIMARY KEY,
@@ -128,6 +142,48 @@ INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText)
     VALUES ('snake_speed', 'medium', 'Medium');
 INSERT INTO snake_selection (displayOptionKey, selectionKey, selectionText) 
     VALUES ('snake_speed', 'fast', 'Fast');
+
+CREATE TABLE IF NOT EXISTS film_selection (
+    id SERIAL PRIMARY KEY,
+    displayOptionKey TEXT,
+    selectionKey TEXT,
+    selectionText TEXT,
+    CONSTRAINT fk_configuration
+        FOREIGN KEY(displayOptionKey)
+        REFERENCES display_option(displayOptionKey)
+);
+
+INSERT INTO film_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('film_speed', 'silent', 'Silent');
+INSERT INTO film_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('film_speed', 'crank', 'Hand-Cranked');
+INSERT INTO film_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('film_speed', 'talkie', 'Modern');
+INSERT INTO film_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('film_tint', 'sepia', 'Sepia');
+INSERT INTO film_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('film_tint', 'silver', 'Silver');
+INSERT INTO film_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('film_tint', 'night', 'Night');
+
+CREATE TABLE IF NOT EXISTS weather_selection (
+    id SERIAL PRIMARY KEY,
+    displayOptionKey TEXT,
+    selectionKey TEXT,
+    selectionText TEXT,
+    CONSTRAINT fk_configuration
+        FOREIGN KEY(displayOptionKey)
+        REFERENCES display_option(displayOptionKey)
+);
+
+INSERT INTO weather_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('weather_units', 'fahrenheit', 'Fahrenheit');
+INSERT INTO weather_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('weather_units', 'celsius', 'Celsius');
+INSERT INTO weather_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('weather_outlook', 'days', '5 Days');
+INSERT INTO weather_selection (displayOptionKey, selectionKey, selectionText) 
+    VALUES ('weather_outlook', 'hourly', 'Hourly');
 
 CREATE TABLE IF NOT EXISTS temperature_report (
     id SERIAL PRIMARY KEY,
